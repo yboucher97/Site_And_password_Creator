@@ -1,0 +1,439 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+APP_NAME="site-and-password-creator"
+REPO_URL="${SITE_AND_PASSWORD_CREATOR_REPO_URL:-https://github.com/yboucher97/Site_And_password_Creator.git}"
+REPO_REF="${SITE_AND_PASSWORD_CREATOR_REPO_REF:-main}"
+INSTALL_DIR="${SITE_AND_PASSWORD_CREATOR_INSTALL_DIR:-/opt/site-and-password-creator}"
+
+PDF_APP_DIR="${INSTALL_DIR}/apps/password-pdf-generator"
+PDF_SERVICE_NAME="${PASSWORD_PDF_SERVICE_NAME:-password-pdf-generator}"
+PDF_SERVICE_USER="${PASSWORD_PDF_SERVICE_USER:-passwordpdf}"
+PDF_DATA_DIR="${PASSWORD_PDF_DATA_DIR:-/var/lib/password-pdf-generator}"
+PDF_CONFIG_DIR="${PASSWORD_PDF_CONFIG_DIR:-/etc/password-pdf-generator}"
+PDF_CONFIG_PATH="${PDF_CONFIG_DIR}/brand_settings.json"
+PDF_ENV_FILE="${PASSWORD_PDF_ENV_FILE:-/etc/password-pdf-generator.env}"
+PDF_PORT="${PASSWORD_PDF_PORT:-8000}"
+PDF_HOST="${PASSWORD_PDF_HOST:-}"
+
+OMADA_APP_DIR="${INSTALL_DIR}/apps/omada-site-creator"
+OMADA_SERVICE_NAME="${OMADA_SITE_CREATOR_SERVICE_NAME:-omada-site-creator}"
+OMADA_SERVICE_USER="${OMADA_SITE_CREATOR_USER:-omada-site-creator}"
+OMADA_DATA_DIR="${OMADA_SITE_CREATOR_DATA_DIR:-/var/lib/omada-site-creator}"
+OMADA_ENV_FILE="${OMADA_SITE_CREATOR_ENV_FILE:-/etc/omada-site-creator.env}"
+OMADA_PORT="${OMADA_SITE_CREATOR_PORT:-3210}"
+OMADA_HOST="${OMADA_SITE_CREATOR_PUBLIC_HOST:-}"
+
+PASSWORD_PDF_API_KEY="${PASSWORD_PDF_API_KEY:-${WIFI_PDF_API_KEY:-}}"
+OMADA_SITE_CREATOR_WEBHOOK_TOKEN="${OMADA_SITE_CREATOR_WEBHOOK_TOKEN:-}"
+PASSWORD_PDF_ENABLE_WORKDRIVE="${PASSWORD_PDF_ENABLE_WORKDRIVE:-true}"
+PASSWORD_PDF_ZOHO_REGION="${PASSWORD_PDF_ZOHO_REGION:-com}"
+
+log() {
+  printf '[%s] %s\n' "${APP_NAME}" "$*"
+}
+
+fail() {
+  printf '[%s] ERROR: %s\n' "${APP_NAME}" "$*" >&2
+  exit 1
+}
+
+generate_secret() {
+  od -An -N32 -tx1 /dev/urandom | tr -d ' \n'
+}
+
+require_root() {
+  if [[ "${EUID}" -ne 0 ]]; then
+    fail "Run this installer as root. Example: sudo bash <(curl -fsSL https://raw.githubusercontent.com/yboucher97/Site_And_password_Creator/main/install.sh)"
+  fi
+}
+
+ensure_packages() {
+  export DEBIAN_FRONTEND=noninteractive
+  apt-get update
+  apt-get install -y git curl ca-certificates openssl python3 python3-venv python3-pip caddy ufw build-essential unzip
+
+  if ! command -v node >/dev/null 2>&1; then
+    curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
+    apt-get install -y nodejs
+  fi
+}
+
+ensure_users_and_dirs() {
+  if ! id -u "${PDF_SERVICE_USER}" >/dev/null 2>&1; then
+    useradd --system --create-home --home "${PDF_DATA_DIR}" --shell /usr/sbin/nologin "${PDF_SERVICE_USER}"
+  fi
+  if ! id -u "${OMADA_SERVICE_USER}" >/dev/null 2>&1; then
+    useradd --system --create-home --home "${OMADA_DATA_DIR}" --shell /usr/sbin/nologin "${OMADA_SERVICE_USER}"
+  fi
+
+  mkdir -p "${PDF_DATA_DIR}" "${PDF_CONFIG_DIR}" "${OMADA_DATA_DIR}"
+  chown -R "${PDF_SERVICE_USER}:${PDF_SERVICE_USER}" "${PDF_DATA_DIR}"
+  chown -R "${OMADA_SERVICE_USER}:${OMADA_SERVICE_USER}" "${OMADA_DATA_DIR}"
+}
+
+sync_repo() {
+  if [[ -d "${INSTALL_DIR}/.git" ]]; then
+    git -C "${INSTALL_DIR}" fetch --tags origin
+    git -C "${INSTALL_DIR}" checkout "${REPO_REF}"
+    git -C "${INSTALL_DIR}" pull --ff-only origin "${REPO_REF}"
+  else
+    rm -rf "${INSTALL_DIR}"
+    git clone --branch "${REPO_REF}" "${REPO_URL}" "${INSTALL_DIR}"
+  fi
+}
+
+configure_pdf_json() {
+  local workdrive_api_base
+  local workdrive_accounts_base
+  local crm_api_base
+
+  case "${PASSWORD_PDF_ZOHO_REGION}" in
+    com)
+      workdrive_api_base="https://www.zohoapis.com/workdrive/api/v1"
+      workdrive_accounts_base="https://accounts.zoho.com/oauth/v2/token"
+      crm_api_base="https://www.zohoapis.com/crm/v7"
+      ;;
+    eu)
+      workdrive_api_base="https://www.zohoapis.eu/workdrive/api/v1"
+      workdrive_accounts_base="https://accounts.zoho.eu/oauth/v2/token"
+      crm_api_base="https://www.zohoapis.eu/crm/v7"
+      ;;
+    in)
+      workdrive_api_base="https://www.zohoapis.in/workdrive/api/v1"
+      workdrive_accounts_base="https://accounts.zoho.in/oauth/v2/token"
+      crm_api_base="https://www.zohoapis.in/crm/v7"
+      ;;
+    com.au)
+      workdrive_api_base="https://www.zohoapis.com.au/workdrive/api/v1"
+      workdrive_accounts_base="https://accounts.zoho.com.au/oauth/v2/token"
+      crm_api_base="https://www.zohoapis.com.au/crm/v7"
+      ;;
+    *)
+      fail "Unsupported PASSWORD_PDF_ZOHO_REGION: ${PASSWORD_PDF_ZOHO_REGION}"
+      ;;
+  esac
+
+  if [[ ! -f "${PDF_CONFIG_PATH}" ]]; then
+    cp "${PDF_APP_DIR}/config/wifi_pdf/brand_settings.json" "${PDF_CONFIG_PATH}"
+  fi
+
+  PDF_CONFIG_PATH="${PDF_CONFIG_PATH}" \
+  PDF_OUTPUT_DIR="${PDF_DATA_DIR}/output/pdf/wifi" \
+  PASSWORD_PDF_ENABLE_WORKDRIVE="${PASSWORD_PDF_ENABLE_WORKDRIVE}" \
+  WORKDRIVE_API_BASE="${workdrive_api_base}" \
+  WORKDRIVE_ACCOUNTS_BASE="${workdrive_accounts_base}" \
+  CRM_API_BASE="${crm_api_base}" \
+  ZOHO_WORKDRIVE_PARENT_FOLDER_ID="${ZOHO_WORKDRIVE_PARENT_FOLDER_ID:-}" \
+  python3 - <<'PY'
+import json
+import os
+from pathlib import Path
+
+config_path = Path(os.environ["PDF_CONFIG_PATH"])
+payload = json.loads(config_path.read_text(encoding="utf-8"))
+payload["output"]["root_dir"] = os.environ["PDF_OUTPUT_DIR"]
+payload["workdrive"]["enabled"] = os.environ["PASSWORD_PDF_ENABLE_WORKDRIVE"].lower() == "true"
+payload["workdrive"]["api_base_url"] = os.environ["WORKDRIVE_API_BASE"]
+payload["workdrive"]["accounts_base_url"] = os.environ["WORKDRIVE_ACCOUNTS_BASE"]
+payload.setdefault("crm", {})
+payload["crm"]["api_base_url"] = os.environ["CRM_API_BASE"]
+
+folder_id = os.environ.get("ZOHO_WORKDRIVE_PARENT_FOLDER_ID", "").strip()
+if folder_id:
+    payload["workdrive"]["parent_folder_id"] = folder_id
+
+config_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+PY
+
+  chmod 644 "${PDF_CONFIG_PATH}"
+}
+
+write_pdf_env() {
+  if [[ -z "${PASSWORD_PDF_API_KEY}" ]]; then
+    PASSWORD_PDF_API_KEY="$(generate_secret)"
+  fi
+
+  PDF_ENV_FILE="${PDF_ENV_FILE}" \
+  PASSWORD_PDF_API_KEY="${PASSWORD_PDF_API_KEY}" \
+  ZOHO_WORKDRIVE_CLIENT_ID="${ZOHO_WORKDRIVE_CLIENT_ID:-}" \
+  ZOHO_WORKDRIVE_CLIENT_SECRET="${ZOHO_WORKDRIVE_CLIENT_SECRET:-}" \
+  ZOHO_WORKDRIVE_REFRESH_TOKEN="${ZOHO_WORKDRIVE_REFRESH_TOKEN:-}" \
+  ZOHO_WORKDRIVE_ACCESS_TOKEN="${ZOHO_WORKDRIVE_ACCESS_TOKEN:-}" \
+  ZOHO_WORKDRIVE_PARENT_FOLDER_ID="${ZOHO_WORKDRIVE_PARENT_FOLDER_ID:-}" \
+  python3 - <<'PY'
+import os
+from pathlib import Path
+
+path = Path(os.environ["PDF_ENV_FILE"])
+existing = {}
+if path.exists():
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if "=" not in line or line.strip().startswith("#"):
+            continue
+        key, value = line.split("=", 1)
+        existing[key] = value
+
+for key in [
+    "PASSWORD_PDF_API_KEY",
+    "ZOHO_WORKDRIVE_CLIENT_ID",
+    "ZOHO_WORKDRIVE_CLIENT_SECRET",
+    "ZOHO_WORKDRIVE_REFRESH_TOKEN",
+    "ZOHO_WORKDRIVE_ACCESS_TOKEN",
+    "ZOHO_WORKDRIVE_PARENT_FOLDER_ID",
+]:
+    value = os.environ.get(key, "")
+    if value:
+        existing[key] = value
+
+existing["WIFI_PDF_API_KEY"] = existing.get("PASSWORD_PDF_API_KEY", os.environ["PASSWORD_PDF_API_KEY"])
+
+ordered = [
+    "WIFI_PDF_API_KEY",
+    "ZOHO_WORKDRIVE_CLIENT_ID",
+    "ZOHO_WORKDRIVE_CLIENT_SECRET",
+    "ZOHO_WORKDRIVE_REFRESH_TOKEN",
+    "ZOHO_WORKDRIVE_ACCESS_TOKEN",
+    "ZOHO_WORKDRIVE_PARENT_FOLDER_ID",
+]
+path.write_text("\n".join(f"{key}={existing.get(key, '')}" for key in ordered) + "\n", encoding="utf-8")
+PY
+
+  chmod 600 "${PDF_ENV_FILE}"
+}
+
+install_pdf_app() {
+  python3 -m venv "${PDF_APP_DIR}/.venv"
+  "${PDF_APP_DIR}/.venv/bin/pip" install --upgrade pip
+  "${PDF_APP_DIR}/.venv/bin/pip" install -r "${PDF_APP_DIR}/requirements.txt"
+  configure_pdf_json
+  write_pdf_env
+}
+
+write_pdf_service() {
+  cat >"/etc/systemd/system/${PDF_SERVICE_NAME}.service" <<EOF
+[Unit]
+Description=Password PDF Generator API
+After=network.target
+
+[Service]
+User=${PDF_SERVICE_USER}
+Group=${PDF_SERVICE_USER}
+WorkingDirectory=${PDF_APP_DIR}
+EnvironmentFile=${PDF_ENV_FILE}
+Environment=WIFI_PDF_CONFIG_PATH=${PDF_CONFIG_PATH}
+Environment=PATH=${PDF_APP_DIR}/.venv/bin
+ExecStart=${PDF_APP_DIR}/.venv/bin/uvicorn wifi_pdf.api:app --host 127.0.0.1 --port ${PDF_PORT}
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+EOF
+}
+
+write_omada_env() {
+  if [[ -z "${OMADA_SITE_CREATOR_WEBHOOK_TOKEN}" ]]; then
+    OMADA_SITE_CREATOR_WEBHOOK_TOKEN="$(generate_secret)"
+  fi
+
+  OMADA_ENV_FILE="${OMADA_ENV_FILE}" \
+  OMADA_PORT="${OMADA_PORT}" \
+  OMADA_DATA_DIR="${OMADA_DATA_DIR}" \
+  OMADA_SITE_CREATOR_WEBHOOK_TOKEN="${OMADA_SITE_CREATOR_WEBHOOK_TOKEN}" \
+  OMADA_SITE_CREATOR_CLOUD_EMAIL="${OMADA_SITE_CREATOR_CLOUD_EMAIL:-}" \
+  OMADA_SITE_CREATOR_CLOUD_PASSWORD="${OMADA_SITE_CREATOR_CLOUD_PASSWORD:-}" \
+  OMADA_SITE_CREATOR_DEVICE_USERNAME="${OMADA_SITE_CREATOR_DEVICE_USERNAME:-}" \
+  OMADA_SITE_CREATOR_DEVICE_PASSWORD="${OMADA_SITE_CREATOR_DEVICE_PASSWORD:-}" \
+  python3 - <<'PY'
+import os
+from pathlib import Path
+
+path = Path(os.environ["OMADA_ENV_FILE"])
+existing = {}
+if path.exists():
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if "=" not in line or line.strip().startswith("#"):
+            continue
+        key, value = line.split("=", 1)
+        existing[key] = value
+
+defaults = {
+    "NODE_ENV": "production",
+    "OMADA_SITE_CREATOR_HOST": "127.0.0.1",
+    "OMADA_SITE_CREATOR_PORT": os.environ["OMADA_PORT"],
+    "OMADA_SITE_CREATOR_DATA_DIR": f"{os.environ['OMADA_DATA_DIR']}/data",
+    "OMADA_SITE_CREATOR_WEBHOOK_TOKEN": os.environ["OMADA_SITE_CREATOR_WEBHOOK_TOKEN"],
+    "OMADA_SITE_CREATOR_HEADLESS": "true",
+    "OMADA_SITE_CREATOR_BROWSER_CHANNEL": "chromium",
+}
+
+for key, value in defaults.items():
+    existing.setdefault(key, value)
+
+for key in [
+    "OMADA_SITE_CREATOR_WEBHOOK_TOKEN",
+    "OMADA_SITE_CREATOR_CLOUD_EMAIL",
+    "OMADA_SITE_CREATOR_CLOUD_PASSWORD",
+    "OMADA_SITE_CREATOR_DEVICE_USERNAME",
+    "OMADA_SITE_CREATOR_DEVICE_PASSWORD",
+]:
+    value = os.environ.get(key, "").strip()
+    if value:
+        existing[key] = value
+
+ordered = [
+    "NODE_ENV",
+    "OMADA_SITE_CREATOR_HOST",
+    "OMADA_SITE_CREATOR_PORT",
+    "OMADA_SITE_CREATOR_DATA_DIR",
+    "OMADA_SITE_CREATOR_WEBHOOK_TOKEN",
+    "OMADA_SITE_CREATOR_HEADLESS",
+    "OMADA_SITE_CREATOR_BROWSER_CHANNEL",
+    "OMADA_SITE_CREATOR_CLOUD_EMAIL",
+    "OMADA_SITE_CREATOR_CLOUD_PASSWORD",
+    "OMADA_SITE_CREATOR_DEVICE_USERNAME",
+    "OMADA_SITE_CREATOR_DEVICE_PASSWORD",
+]
+
+lines = []
+for key in ordered:
+    if key in existing:
+        lines.append(f"{key}={existing[key]}")
+
+path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+PY
+
+  chmod 600 "${OMADA_ENV_FILE}"
+}
+
+install_omada_app() {
+  pushd "${OMADA_APP_DIR}" >/dev/null
+  npm ci
+  npm run build
+  npm prune --omit=dev
+  npx playwright install chromium --with-deps
+  popd >/dev/null
+  write_omada_env
+}
+
+write_omada_service() {
+  cat >"/etc/systemd/system/${OMADA_SERVICE_NAME}.service" <<EOF
+[Unit]
+Description=Omada Site Creator
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=${OMADA_SERVICE_USER}
+Group=${OMADA_SERVICE_USER}
+WorkingDirectory=${OMADA_APP_DIR}
+EnvironmentFile=${OMADA_ENV_FILE}
+Environment=HOME=${OMADA_DATA_DIR}
+ExecStart=/usr/bin/npm run serve:dist
+Restart=always
+RestartSec=5
+TimeoutStopSec=20
+
+[Install]
+WantedBy=multi-user.target
+EOF
+}
+
+configure_caddy() {
+  if [[ -z "${PDF_HOST}" && -z "${OMADA_HOST}" ]]; then
+    return
+  fi
+
+  mkdir -p /etc/caddy/conf.d
+  if [[ ! -f /etc/caddy/Caddyfile ]] || grep -Fq '/usr/share/caddy' /etc/caddy/Caddyfile; then
+    cat >/etc/caddy/Caddyfile <<'EOF'
+import /etc/caddy/conf.d/*.caddy
+EOF
+  elif ! grep -Fq 'import /etc/caddy/conf.d/*.caddy' /etc/caddy/Caddyfile; then
+    printf '\nimport /etc/caddy/conf.d/*.caddy\n' >> /etc/caddy/Caddyfile
+  fi
+
+  if [[ -n "${PDF_HOST}" ]]; then
+    cat >"/etc/caddy/conf.d/${PDF_SERVICE_NAME}.caddy" <<EOF
+${PDF_HOST} {
+    reverse_proxy 127.0.0.1:${PDF_PORT}
+}
+EOF
+    caddy fmt --overwrite "/etc/caddy/conf.d/${PDF_SERVICE_NAME}.caddy" >/dev/null
+  fi
+
+  if [[ -n "${OMADA_HOST}" ]]; then
+    cat >"/etc/caddy/conf.d/${OMADA_SERVICE_NAME}.caddy" <<EOF
+${OMADA_HOST} {
+    reverse_proxy 127.0.0.1:${OMADA_PORT}
+}
+EOF
+    caddy fmt --overwrite "/etc/caddy/conf.d/${OMADA_SERVICE_NAME}.caddy" >/dev/null
+  fi
+
+  caddy fmt --overwrite /etc/caddy/Caddyfile >/dev/null
+  caddy validate --config /etc/caddy/Caddyfile
+  systemctl enable --now caddy
+  systemctl reload caddy
+}
+
+configure_ufw() {
+  ufw allow OpenSSH >/dev/null 2>&1 || true
+  if [[ -n "${PDF_HOST}" || -n "${OMADA_HOST}" ]]; then
+    ufw allow 80/tcp >/dev/null 2>&1 || true
+    ufw allow 443/tcp >/dev/null 2>&1 || true
+  fi
+  ufw --force enable >/dev/null 2>&1 || true
+}
+
+start_services() {
+  systemctl daemon-reload
+  systemctl enable --now "${PDF_SERVICE_NAME}"
+  systemctl enable --now "${OMADA_SERVICE_NAME}"
+}
+
+print_summary() {
+  echo
+  echo "Combined install complete."
+  echo "Code directory: ${INSTALL_DIR}"
+  echo "PDF config:     ${PDF_CONFIG_PATH}"
+  echo "PDF env:        ${PDF_ENV_FILE}"
+  echo "Omada env:      ${OMADA_ENV_FILE}"
+  echo "Services:"
+  echo "  - ${PDF_SERVICE_NAME}"
+  echo "  - ${OMADA_SERVICE_NAME}"
+  echo
+  echo "Next edits:"
+  echo "  - ${PDF_CONFIG_PATH}"
+  echo "  - ${PDF_ENV_FILE}"
+  echo "  - ${OMADA_ENV_FILE}"
+  echo
+  echo "Local checks:"
+  echo "  - curl http://127.0.0.1:${PDF_PORT}/health"
+  echo "  - curl http://127.0.0.1:${OMADA_PORT}/health"
+  if [[ -n "${PDF_HOST}" ]]; then
+    echo "Public PDF URL:   https://${PDF_HOST}"
+  fi
+  if [[ -n "${OMADA_HOST}" ]]; then
+    echo "Public Omada URL: https://${OMADA_HOST}"
+  fi
+}
+
+main() {
+  require_root
+  ensure_packages
+  ensure_users_and_dirs
+  sync_repo
+  install_pdf_app
+  write_pdf_service
+  install_omada_app
+  write_omada_service
+  configure_caddy
+  configure_ufw
+  start_services
+  print_summary
+}
+
+main "$@"
