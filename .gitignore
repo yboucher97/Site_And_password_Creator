@@ -11,5 +11,8 @@ apps/omada-site-creator/output/
 
 apps/password-pdf-generator/.venv/
 apps/password-pdf-generator/output/
+apps/site-and-password-workflow/.venv/
+apps/site-and-password-workflow/output/
+apps/site-and-password-workflow/**/__pycache__/
 
 *.log

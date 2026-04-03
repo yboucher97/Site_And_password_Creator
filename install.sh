@@ -6,6 +6,8 @@ REPO_URL="${SITE_AND_PASSWORD_CREATOR_REPO_URL:-https://github.com/yboucher97/Si
 REPO_REF="${SITE_AND_PASSWORD_CREATOR_REPO_REF:-main}"
 INSTALL_DIR="${SITE_AND_PASSWORD_CREATOR_INSTALL_DIR:-/opt/site-and-password-creator}"
 
+PUBLIC_API_HOST="${SITE_AND_PASSWORD_API_HOST:-}"
+
 PDF_APP_DIR="${INSTALL_DIR}/apps/password-pdf-generator"
 PDF_SERVICE_NAME="${PASSWORD_PDF_SERVICE_NAME:-password-pdf-generator}"
 PDF_SERVICE_USER="${PASSWORD_PDF_SERVICE_USER:-passwordpdf}"
@@ -24,8 +26,17 @@ OMADA_ENV_FILE="${OMADA_SITE_CREATOR_ENV_FILE:-/etc/omada-site-creator.env}"
 OMADA_PORT="${OMADA_SITE_CREATOR_PORT:-3210}"
 OMADA_HOST="${OMADA_SITE_CREATOR_PUBLIC_HOST:-}"
 
+WORKFLOW_APP_DIR="${INSTALL_DIR}/apps/site-and-password-workflow"
+WORKFLOW_SERVICE_NAME="${SITE_AND_PASSWORD_WORKFLOW_SERVICE_NAME:-site-and-password-workflow}"
+WORKFLOW_SERVICE_USER="${SITE_AND_PASSWORD_WORKFLOW_USER:-sitepasswordworkflow}"
+WORKFLOW_DATA_DIR="${SITE_AND_PASSWORD_WORKFLOW_DATA_DIR:-/var/lib/site-and-password-workflow}"
+WORKFLOW_ENV_FILE="${SITE_AND_PASSWORD_WORKFLOW_ENV_FILE:-/etc/site-and-password-workflow.env}"
+WORKFLOW_PORT="${SITE_AND_PASSWORD_WORKFLOW_PORT:-8100}"
+WORKFLOW_HOST="${SITE_AND_PASSWORD_WORKFLOW_PUBLIC_HOST:-}"
+
 PASSWORD_PDF_API_KEY="${PASSWORD_PDF_API_KEY:-${WIFI_PDF_API_KEY:-}}"
 OMADA_SITE_CREATOR_WEBHOOK_TOKEN="${OMADA_SITE_CREATOR_WEBHOOK_TOKEN:-}"
+SITE_AND_PASSWORD_WORKFLOW_API_KEY="${SITE_AND_PASSWORD_WORKFLOW_API_KEY:-${SITE_WORKFLOW_API_KEY:-}}"
 PASSWORD_PDF_ENABLE_WORKDRIVE="${PASSWORD_PDF_ENABLE_WORKDRIVE:-true}"
 PASSWORD_PDF_ZOHO_REGION="${PASSWORD_PDF_ZOHO_REGION:-com}"
 
@@ -59,6 +70,18 @@ ensure_packages() {
   fi
 }
 
+ensure_secrets() {
+  if [[ -z "${PASSWORD_PDF_API_KEY}" ]]; then
+    PASSWORD_PDF_API_KEY="$(generate_secret)"
+  fi
+  if [[ -z "${OMADA_SITE_CREATOR_WEBHOOK_TOKEN}" ]]; then
+    OMADA_SITE_CREATOR_WEBHOOK_TOKEN="$(generate_secret)"
+  fi
+  if [[ -z "${SITE_AND_PASSWORD_WORKFLOW_API_KEY}" ]]; then
+    SITE_AND_PASSWORD_WORKFLOW_API_KEY="$(generate_secret)"
+  fi
+}
+
 ensure_users_and_dirs() {
   if ! id -u "${PDF_SERVICE_USER}" >/dev/null 2>&1; then
     useradd --system --create-home --home "${PDF_DATA_DIR}" --shell /usr/sbin/nologin "${PDF_SERVICE_USER}"
@@ -66,10 +89,14 @@ ensure_users_and_dirs() {
   if ! id -u "${OMADA_SERVICE_USER}" >/dev/null 2>&1; then
     useradd --system --create-home --home "${OMADA_DATA_DIR}" --shell /usr/sbin/nologin "${OMADA_SERVICE_USER}"
   fi
+  if ! id -u "${WORKFLOW_SERVICE_USER}" >/dev/null 2>&1; then
+    useradd --system --create-home --home "${WORKFLOW_DATA_DIR}" --shell /usr/sbin/nologin "${WORKFLOW_SERVICE_USER}"
+  fi
 
-  mkdir -p "${PDF_DATA_DIR}" "${PDF_CONFIG_DIR}" "${OMADA_DATA_DIR}"
+  mkdir -p "${PDF_DATA_DIR}" "${PDF_CONFIG_DIR}" "${OMADA_DATA_DIR}" "${WORKFLOW_DATA_DIR}"
   chown -R "${PDF_SERVICE_USER}:${PDF_SERVICE_USER}" "${PDF_DATA_DIR}"
   chown -R "${OMADA_SERVICE_USER}:${OMADA_SERVICE_USER}" "${OMADA_DATA_DIR}"
+  chown -R "${WORKFLOW_SERVICE_USER}:${WORKFLOW_SERVICE_USER}" "${WORKFLOW_DATA_DIR}"
 }
 
 sync_repo() {
@@ -150,10 +177,6 @@ PY
 }
 
 write_pdf_env() {
-  if [[ -z "${PASSWORD_PDF_API_KEY}" ]]; then
-    PASSWORD_PDF_API_KEY="$(generate_secret)"
-  fi
-
   PDF_ENV_FILE="${PDF_ENV_FILE}" \
   PASSWORD_PDF_API_KEY="${PASSWORD_PDF_API_KEY}" \
   ZOHO_WORKDRIVE_CLIENT_ID="${ZOHO_WORKDRIVE_CLIENT_ID:-}" \
@@ -186,7 +209,7 @@ for key in [
     if value:
         existing[key] = value
 
-existing["WIFI_PDF_API_KEY"] = existing.get("PASSWORD_PDF_API_KEY", os.environ["PASSWORD_PDF_API_KEY"])
+existing["WIFI_PDF_API_KEY"] = os.environ["PASSWORD_PDF_API_KEY"]
 
 ordered = [
     "WIFI_PDF_API_KEY",
@@ -233,10 +256,6 @@ EOF
 }
 
 write_omada_env() {
-  if [[ -z "${OMADA_SITE_CREATOR_WEBHOOK_TOKEN}" ]]; then
-    OMADA_SITE_CREATOR_WEBHOOK_TOKEN="$(generate_secret)"
-  fi
-
   OMADA_ENV_FILE="${OMADA_ENV_FILE}" \
   OMADA_PORT="${OMADA_PORT}" \
   OMADA_DATA_DIR="${OMADA_DATA_DIR}" \
@@ -341,8 +360,135 @@ WantedBy=multi-user.target
 EOF
 }
 
+write_workflow_env() {
+  WORKFLOW_ENV_FILE="${WORKFLOW_ENV_FILE}" \
+  WORKFLOW_PORT="${WORKFLOW_PORT}" \
+  WORKFLOW_DATA_DIR="${WORKFLOW_DATA_DIR}" \
+  SITE_AND_PASSWORD_WORKFLOW_API_KEY="${SITE_AND_PASSWORD_WORKFLOW_API_KEY}" \
+  PASSWORD_PDF_API_KEY="${PASSWORD_PDF_API_KEY}" \
+  OMADA_SITE_CREATOR_WEBHOOK_TOKEN="${OMADA_SITE_CREATOR_WEBHOOK_TOKEN}" \
+  OMADA_SITE_CREATOR_CLOUD_EMAIL="${OMADA_SITE_CREATOR_CLOUD_EMAIL:-}" \
+  OMADA_SITE_CREATOR_CLOUD_PASSWORD="${OMADA_SITE_CREATOR_CLOUD_PASSWORD:-}" \
+  OMADA_SITE_CREATOR_DEVICE_USERNAME="${OMADA_SITE_CREATOR_DEVICE_USERNAME:-}" \
+  OMADA_SITE_CREATOR_DEVICE_PASSWORD="${OMADA_SITE_CREATOR_DEVICE_PASSWORD:-}" \
+  python3 - <<'PY'
+import os
+from pathlib import Path
+
+path = Path(os.environ["WORKFLOW_ENV_FILE"])
+existing = {}
+if path.exists():
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if "=" not in line or line.strip().startswith("#"):
+            continue
+        key, value = line.split("=", 1)
+        existing[key] = value
+
+defaults = {
+    "SITE_WORKFLOW_API_KEY": os.environ["SITE_AND_PASSWORD_WORKFLOW_API_KEY"],
+    "SITE_WORKFLOW_HOST": "127.0.0.1",
+    "SITE_WORKFLOW_PORT": os.environ["WORKFLOW_PORT"],
+    "SITE_WORKFLOW_OUTPUT_ROOT": f"{os.environ['WORKFLOW_DATA_DIR']}/output",
+    "SITE_WORKFLOW_SSID_PREFIX": "APT_",
+    "SITE_WORKFLOW_SSID_TEMPLATE": "{prefix}{identifier}_{suffix}",
+    "SITE_WORKFLOW_SSID_SUFFIX_LENGTH": "2",
+    "SITE_WORKFLOW_PASSWORD_SPECIALS": "*!$@#",
+    "PASSWORD_PDF_BASE_URL": "http://127.0.0.1:8000",
+    "PASSWORD_PDF_API_KEY": os.environ["PASSWORD_PDF_API_KEY"],
+    "PASSWORD_PDF_TIMEOUT_SECONDS": "600",
+    "OMADA_SITE_CREATOR_BASE_URL": "http://127.0.0.1:3210",
+    "OMADA_SITE_CREATOR_WEBHOOK_TOKEN": os.environ["OMADA_SITE_CREATOR_WEBHOOK_TOKEN"],
+    "OMADA_SITE_CREATOR_TIMEOUT_SECONDS": "900",
+    "OMADA_ORGANIZATION_NAME": "Opti-plex",
+    "OMADA_CLOUD_BASE_URL": "https://use1-omada-cloud.tplinkcloud.com/",
+    "OMADA_BROWSER_CHANNEL": "chromium",
+    "OMADA_HEADLESS": "true",
+    "OMADA_DEFAULT_REGION": "Canada",
+    "OMADA_DEFAULT_TIMEZONE": "America/Toronto",
+    "OMADA_DEFAULT_SCENARIO": "Office",
+}
+
+for key, value in defaults.items():
+    existing.setdefault(key, value)
+
+for key in [
+    "SITE_WORKFLOW_API_KEY",
+    "PASSWORD_PDF_API_KEY",
+    "OMADA_SITE_CREATOR_WEBHOOK_TOKEN",
+    "OMADA_SITE_CREATOR_CLOUD_EMAIL",
+    "OMADA_SITE_CREATOR_CLOUD_PASSWORD",
+    "OMADA_SITE_CREATOR_DEVICE_USERNAME",
+    "OMADA_SITE_CREATOR_DEVICE_PASSWORD",
+]:
+    value = os.environ.get(key, "").strip()
+    if value:
+        existing[key] = value
+
+ordered = [
+    "SITE_WORKFLOW_API_KEY",
+    "SITE_WORKFLOW_HOST",
+    "SITE_WORKFLOW_PORT",
+    "SITE_WORKFLOW_OUTPUT_ROOT",
+    "SITE_WORKFLOW_SSID_PREFIX",
+    "SITE_WORKFLOW_SSID_TEMPLATE",
+    "SITE_WORKFLOW_SSID_SUFFIX_LENGTH",
+    "SITE_WORKFLOW_PASSWORD_SPECIALS",
+    "PASSWORD_PDF_BASE_URL",
+    "PASSWORD_PDF_API_KEY",
+    "PASSWORD_PDF_TIMEOUT_SECONDS",
+    "OMADA_SITE_CREATOR_BASE_URL",
+    "OMADA_SITE_CREATOR_WEBHOOK_TOKEN",
+    "OMADA_SITE_CREATOR_TIMEOUT_SECONDS",
+    "OMADA_ORGANIZATION_NAME",
+    "OMADA_CLOUD_BASE_URL",
+    "OMADA_BROWSER_CHANNEL",
+    "OMADA_HEADLESS",
+    "OMADA_DEFAULT_REGION",
+    "OMADA_DEFAULT_TIMEZONE",
+    "OMADA_DEFAULT_SCENARIO",
+    "OMADA_SITE_CREATOR_CLOUD_EMAIL",
+    "OMADA_SITE_CREATOR_CLOUD_PASSWORD",
+    "OMADA_SITE_CREATOR_DEVICE_USERNAME",
+    "OMADA_SITE_CREATOR_DEVICE_PASSWORD",
+]
+path.write_text("\n".join(f"{key}={existing.get(key, '')}" for key in ordered) + "\n", encoding="utf-8")
+PY
+
+  chmod 600 "${WORKFLOW_ENV_FILE}"
+}
+
+install_workflow_app() {
+  python3 -m venv "${WORKFLOW_APP_DIR}/.venv"
+  "${WORKFLOW_APP_DIR}/.venv/bin/pip" install --upgrade pip
+  "${WORKFLOW_APP_DIR}/.venv/bin/pip" install -r "${WORKFLOW_APP_DIR}/requirements.txt"
+  write_workflow_env
+}
+
+write_workflow_service() {
+  cat >"/etc/systemd/system/${WORKFLOW_SERVICE_NAME}.service" <<EOF
+[Unit]
+Description=Site And Password Workflow
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=${WORKFLOW_SERVICE_USER}
+Group=${WORKFLOW_SERVICE_USER}
+WorkingDirectory=${WORKFLOW_APP_DIR}
+EnvironmentFile=${WORKFLOW_ENV_FILE}
+Environment=PATH=${WORKFLOW_APP_DIR}/.venv/bin
+ExecStart=${WORKFLOW_APP_DIR}/.venv/bin/uvicorn workflow.api:app --host 127.0.0.1 --port ${WORKFLOW_PORT}
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+EOF
+}
+
 configure_caddy() {
-  if [[ -z "${PDF_HOST}" && -z "${OMADA_HOST}" ]]; then
+  if [[ -z "${PUBLIC_API_HOST}" && -z "${PDF_HOST}" && -z "${OMADA_HOST}" && -z "${WORKFLOW_HOST}" ]]; then
     return
   fi
 
@@ -355,22 +501,59 @@ EOF
     printf '\nimport /etc/caddy/conf.d/*.caddy\n' >> /etc/caddy/Caddyfile
   fi
 
-  if [[ -n "${PDF_HOST}" ]]; then
-    cat >"/etc/caddy/conf.d/${PDF_SERVICE_NAME}.caddy" <<EOF
+  if [[ -n "${PUBLIC_API_HOST}" ]]; then
+    cat >"/etc/caddy/conf.d/${APP_NAME}.caddy" <<EOF
+${PUBLIC_API_HOST} {
+    @pdfRoot path /pdf
+    redir @pdfRoot /pdf/ 308
+    @omadaRoot path /omada
+    redir @omadaRoot /omada/ 308
+    @workflowRoot path /workflow
+    redir @workflowRoot /workflow/ 308
+
+    handle_path /pdf/* {
+        reverse_proxy 127.0.0.1:${PDF_PORT}
+    }
+
+    handle_path /omada/* {
+        reverse_proxy 127.0.0.1:${OMADA_PORT}
+    }
+
+    handle_path /workflow/* {
+        reverse_proxy 127.0.0.1:${WORKFLOW_PORT}
+    }
+
+    reverse_proxy 127.0.0.1:${WORKFLOW_PORT}
+}
+EOF
+    caddy fmt --overwrite "/etc/caddy/conf.d/${APP_NAME}.caddy" >/dev/null
+  else
+    if [[ -n "${PDF_HOST}" ]]; then
+      cat >"/etc/caddy/conf.d/${PDF_SERVICE_NAME}.caddy" <<EOF
 ${PDF_HOST} {
     reverse_proxy 127.0.0.1:${PDF_PORT}
 }
 EOF
-    caddy fmt --overwrite "/etc/caddy/conf.d/${PDF_SERVICE_NAME}.caddy" >/dev/null
-  fi
+      caddy fmt --overwrite "/etc/caddy/conf.d/${PDF_SERVICE_NAME}.caddy" >/dev/null
+    fi
 
-  if [[ -n "${OMADA_HOST}" ]]; then
-    cat >"/etc/caddy/conf.d/${OMADA_SERVICE_NAME}.caddy" <<EOF
+    if [[ -n "${OMADA_HOST}" ]]; then
+      cat >"/etc/caddy/conf.d/${OMADA_SERVICE_NAME}.caddy" <<EOF
 ${OMADA_HOST} {
     reverse_proxy 127.0.0.1:${OMADA_PORT}
 }
 EOF
-    caddy fmt --overwrite "/etc/caddy/conf.d/${OMADA_SERVICE_NAME}.caddy" >/dev/null
+      caddy fmt --overwrite "/etc/caddy/conf.d/${OMADA_SERVICE_NAME}.caddy" >/dev/null
+    fi
+
+    if [[ -n "${WORKFLOW_HOST}" ]]; then
+      cat >"/etc/caddy/conf.d/${WORKFLOW_SERVICE_NAME}.caddy" <<EOF
+${WORKFLOW_HOST} {
+    reverse_proxy 127.0.0.1:${WORKFLOW_PORT}
+}
+EOF
+      caddy fmt --overwrite "/etc/caddy/conf.d/${WORKFLOW_SERVICE_NAME}.caddy" >/dev/null
+    fi
   fi
 
   caddy fmt --overwrite /etc/caddy/Caddyfile >/dev/null
@@ -381,7 +564,7 @@ EOF
 
 configure_ufw() {
   ufw allow OpenSSH >/dev/null 2>&1 || true
-  if [[ -n "${PDF_HOST}" || -n "${OMADA_HOST}" ]]; then
+  if [[ -n "${PUBLIC_API_HOST}" || -n "${PDF_HOST}" || -n "${OMADA_HOST}" || -n "${WORKFLOW_HOST}" ]]; then
     ufw allow 80/tcp >/dev/null 2>&1 || true
     ufw allow 443/tcp >/dev/null 2>&1 || true
   fi
@@ -392,44 +575,48 @@ start_services() {
   systemctl daemon-reload
   systemctl enable --now "${PDF_SERVICE_NAME}"
   systemctl enable --now "${OMADA_SERVICE_NAME}"
+  systemctl enable --now "${WORKFLOW_SERVICE_NAME}"
 }
 
 print_summary() {
   echo
   echo "Combined install complete."
-  echo "Code directory: ${INSTALL_DIR}"
-  echo "PDF config:     ${PDF_CONFIG_PATH}"
-  echo "PDF env:        ${PDF_ENV_FILE}"
-  echo "Omada env:      ${OMADA_ENV_FILE}"
+  echo "Code directory:  ${INSTALL_DIR}"
+  echo "PDF config:      ${PDF_CONFIG_PATH}"
+  echo "PDF env:         ${PDF_ENV_FILE}"
+  echo "Omada env:       ${OMADA_ENV_FILE}"
+  echo "Workflow env:    ${WORKFLOW_ENV_FILE}"
   echo "Services:"
   echo "  - ${PDF_SERVICE_NAME}"
   echo "  - ${OMADA_SERVICE_NAME}"
-  echo
-  echo "Next edits:"
-  echo "  - ${PDF_CONFIG_PATH}"
-  echo "  - ${PDF_ENV_FILE}"
-  echo "  - ${OMADA_ENV_FILE}"
+  echo "  - ${WORKFLOW_SERVICE_NAME}"
   echo
   echo "Local checks:"
   echo "  - curl http://127.0.0.1:${PDF_PORT}/health"
-  echo "  - curl http://127.0.0.1:${OMADA_PORT}/health"
-  if [[ -n "${PDF_HOST}" ]]; then
-    echo "Public PDF URL:   https://${PDF_HOST}"
-  fi
-  if [[ -n "${OMADA_HOST}" ]]; then
-    echo "Public Omada URL: https://${OMADA_HOST}"
+  echo "  - curl http://127.0.0.1:${OMADA_PORT}/api/health"
+  echo "  - curl http://127.0.0.1:${WORKFLOW_PORT}/health"
+  if [[ -n "${PUBLIC_API_HOST}" ]]; then
+    echo
+    echo "Public base URL: https://${PUBLIC_API_HOST}"
+    echo "Workflow webhook: https://${PUBLIC_API_HOST}/webhooks/zoho/site-and-password"
+    echo "Workflow health:  https://${PUBLIC_API_HOST}/health"
+    echo "PDF health:       https://${PUBLIC_API_HOST}/pdf/health"
+    echo "Omada health:     https://${PUBLIC_API_HOST}/omada/api/health"
   fi
 }
 
 main() {
   require_root
   ensure_packages
+  ensure_secrets
   ensure_users_and_dirs
   sync_repo
   install_pdf_app
   write_pdf_service
   install_omada_app
   write_omada_service
+  install_workflow_app
+  write_workflow_service
   configure_caddy
   configure_ufw
   start_services

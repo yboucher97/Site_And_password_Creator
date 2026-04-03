@@ -1,0 +1,16 @@
+{
+  "building_name": "Workflow Demo Building",
+  "credential_mode": "generated",
+  "workflow_mode": "pdf_and_site",
+  "city": "Montreal",
+  "workdrive_folder_id": "replace-with-workdrive-folder-id",
+  "template_name": "legacy_template",
+  "site_name": "Workflow Demo Building",
+  "omada_region": "Canada",
+  "omada_timezone": "America/Toronto",
+  "omada_scenario": "Office",
+  "ssid_prefix": "APT_",
+  "ssid_template": "{prefix}{identifier}_{suffix}",
+  "units": ["101", "102", "103", "104"],
+  "unit_labels": ["Appartement 101", "Appartement 102", "Appartement 103", "Appartement 104"]
+}
