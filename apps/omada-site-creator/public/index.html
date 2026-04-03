@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Omada Site Creator</title>
+  <style>
+    :root {
+      --bg: #f6f3eb;
+      --panel: #fffdfa;
+      --ink: #1d2a34;
+      --muted: #5b6975;
+      --line: #d9d1c3;
+      --accent: #0d6a72;
+      --accent-2: #d46a3a;
+      --ok: #1d7f4e;
+      --warn: #9a5a00;
+      --err: #b43737;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--ink);
+      font-family: "Segoe UI", "Helvetica Neue", sans-serif;
+      background:
+        radial-gradient(circle at top left, rgba(212, 106, 58, 0.15), transparent 28%),
+        radial-gradient(circle at top right, rgba(13, 106, 114, 0.16), transparent 24%),
+        linear-gradient(180deg, #fbf8f0 0%, var(--bg) 100%);
+    }
+
+    .shell {
+      width: min(1080px, calc(100vw - 32px));
+      margin: 32px auto;
+      display: grid;
+      gap: 20px;
+    }
+
+    .hero, .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      box-shadow: 0 20px 60px rgba(29, 42, 52, 0.07);
+    }
+
+    .hero {
+      padding: 28px;
+      display: grid;
+      gap: 12px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(2rem, 4vw, 3.2rem);
+      line-height: 1;
+      letter-spacing: -0.04em;
+    }
+
+    p { margin: 0; color: var(--muted); line-height: 1.6; }
+
+    .grid {
+      display: grid;
+      gap: 20px;
+      grid-template-columns: 1.05fr 0.95fr;
+    }
+
+    .panel {
+      padding: 22px;
+      display: grid;
+      gap: 14px;
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    button, input[type="file"]::file-selector-button {
+      appearance: none;
+      border: 0;
+      border-radius: 999px;
+      padding: 12px 18px;
+      font: inherit;
+      cursor: pointer;
+      transition: transform 120ms ease, opacity 120ms ease;
+    }
+
+    button:hover, input[type="file"]::file-selector-button:hover { transform: translateY(-1px); }
+
+    button.primary { background: var(--accent); color: white; }
+    button.secondary, input[type="file"]::file-selector-button { background: #efe6d8; color: var(--ink); }
+    button:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+
+    input[type="file"] {
+      width: 100%;
+      color: var(--muted);
+      background: #faf7f1;
+      border: 1px dashed var(--line);
+      border-radius: 14px;
+      padding: 14px;
+    }
+
+    .status {
+      padding: 12px 14px;
+      border-radius: 14px;
+      background: #f9f5ed;
+      color: var(--muted);
+      border: 1px solid var(--line);
+      min-height: 48px;
+    }
+
+    .status.ok { border-color: rgba(29, 127, 78, 0.2); background: rgba(29, 127, 78, 0.08); color: var(--ok); }
+    .status.warn { border-color: rgba(154, 90, 0, 0.2); background: rgba(154, 90, 0, 0.08); color: var(--warn); }
+    .status.err { border-color: rgba(180, 55, 55, 0.2); background: rgba(180, 55, 55, 0.08); color: var(--err); }
+
+    code, pre { font-family: "Cascadia Code", "Consolas", monospace; }
+
+    pre {
+      margin: 0;
+      padding: 16px;
+      overflow: auto;
+      border-radius: 14px;
+      background: #1e252b;
+      color: #f4f0e8;
+      min-height: 260px;
+    }
+
+    .kicker {
+      text-transform: uppercase;
+      letter-spacing: 0.16em;
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: var(--accent);
+    }
+
+    .small { font-size: 0.93rem; }
+
+    @media (max-width: 900px) {
+      .grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <section class="hero">
+      <div class="kicker">Omada Essentials Desktop Helper</div>
+      <h1>Sign in once, upload a plan, then press start.</h1>
+      <p>This desktop app reuses a persistent Playwright browser profile. Use <strong>Sign In to Omada</strong> once, finish login in the opened browser window, then upload a YAML or JSON plan file and run the provisioning flow.</p>
+      <p class="small">Sample file: <a href="/examples/plan.example.yaml" download>plan.example.yaml</a></p>
+    </section>
+
+    <section class="grid">
+      <div class="panel">
+        <div class="kicker">Controls</div>
+        <input id="planFile" type="file" accept=".yaml,.yml,.json">
+        <div class="actions">
+          <button id="loginBtn" class="secondary">Sign In to Omada</button>
+          <button id="validateBtn" class="secondary">Validate</button>
+          <button id="startBtn" class="primary">Start</button>
+        </div>
+        <div id="status" class="status">Ready.</div>
+        <p class="small">Expected file sections: <code>controller</code>, <code>execution</code>, <code>sites</code>, then per-site <code>lans</code>, <code>wlanGroups</code>, and <code>ssids</code>.</p>
+      </div>
+
+      <div class="panel">
+        <div class="kicker">Output</div>
+        <pre id="output">No run yet.</pre>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const statusEl = document.getElementById("status");
+    const outputEl = document.getElementById("output");
+    const fileInput = document.getElementById("planFile");
+    const loginBtn = document.getElementById("loginBtn");
+    const validateBtn = document.getElementById("validateBtn");
+    const startBtn = document.getElementById("startBtn");
+
+    function setStatus(message, tone = "") {
+      statusEl.textContent = message;
+      statusEl.className = `status ${tone}`.trim();
+    }
+
+    function setOutput(value) {
+      outputEl.textContent = typeof value === "string" ? value : JSON.stringify(value, null, 2);
+    }
+
+    async function postJson(url) {
+      const response = await fetch(url, { method: "POST" });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.error || "Request failed.");
+      return body;
+    }
+
+    async function postFile(url) {
+      const file = fileInput.files?.[0];
+      if (!file) throw new Error("Choose a YAML or JSON plan file first.");
+      const form = new FormData();
+      form.append("plan", file);
+      const response = await fetch(url, { method: "POST", body: form });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.error || "Request failed.");
+      return body;
+    }
+
+    async function runAction(button, action) {
+      validateBtn.disabled = true;
+      startBtn.disabled = true;
+      loginBtn.disabled = true;
+      button.disabled = true;
+      try {
+        await action();
+      } catch (error) {
+        setStatus(error.message || String(error), "err");
+      } finally {
+        validateBtn.disabled = false;
+        startBtn.disabled = false;
+        loginBtn.disabled = false;
+        button.disabled = false;
+      }
+    }
+
+    loginBtn.addEventListener("click", () => runAction(loginBtn, async () => {
+      setStatus("Opening the Omada login browser. Complete login there, then close it.", "warn");
+      const body = await postJson("/api/session/login");
+      setOutput(body);
+      setStatus(body.message, "ok");
+    }));
+
+    validateBtn.addEventListener("click", () => runAction(validateBtn, async () => {
+      setStatus("Validating plan file...", "warn");
+      const body = await postFile("/api/runs/validate");
+      setOutput(body);
+      setStatus("Plan file validated.", "ok");
+    }));
+
+    startBtn.addEventListener("click", () => runAction(startBtn, async () => {
+      setStatus("Running plan. Keep the automation browser available.", "warn");
+      const body = await postFile("/api/runs/start");
+      setOutput(body);
+      const tone = body.report?.overallStatus === "failed" ? "err" : "ok";
+      setStatus(`Run finished with status: ${body.report?.overallStatus || "unknown"}.`, tone);
+    }));
+
+    window.addEventListener("load", async () => {
+      try {
+        const response = await fetch("/api/health");
+        const body = await response.json();
+        if (body.ok) {
+          setStatus("Desktop app ready. Sign in, upload a file, then start.", "ok");
+        }
+      } catch (_error) {
+        setStatus("App started, but the local service is not responding.", "err");
+      }
+    });
+  </script>
+</body>
+</html>

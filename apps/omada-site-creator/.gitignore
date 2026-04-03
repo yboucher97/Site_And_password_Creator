@@ -1,0 +1,11 @@
+node_modules/
+dist/
+release/
+output/
+data/browser-profile/*
+data/reports/*
+data/uploads/*
+!data/browser-profile/.gitkeep
+!data/reports/.gitkeep
+!data/uploads/.gitkeep
+.env

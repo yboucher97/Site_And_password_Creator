@@ -1,0 +1,46 @@
+{
+  "name": "omada-site-creator",
+  "version": "0.1.0",
+  "description": "File-driven Omada Essentials site provisioning helper using Playwright UI automation.",
+  "private": false,
+  "type": "commonjs",
+  "main": "dist/desktop/main.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "start": "tsx src/server.ts",
+    "serve:dist": "node dist/server.js",
+    "dev": "tsx watch src/server.ts",
+    "desktop": "npm run build && electron .",
+    "dist:win": "npm run build && electron-packager . \"Omada Site Creator\" --out release --platform win32 --arch x64 --overwrite --prune true --ignore \"^/src($|/)\" --ignore \"^/data($|/)\" --ignore \"^/release($|/)\" --ignore \"^/.git($|/)\"",
+    "login": "tsx src/cli.ts login",
+    "dry-run": "tsx src/cli.ts dry-run",
+    "dry-run:example": "tsx src/cli.ts dry-run examples/plan.example.yaml",
+    "apply": "tsx src/cli.ts apply",
+    "apply:example": "tsx src/cli.ts apply examples/plan.example.yaml"
+  },
+  "keywords": [
+    "omada",
+    "playwright",
+    "automation",
+    "networking"
+  ],
+  "author": "yboucher97",
+  "license": "MIT",
+  "dependencies": {
+    "commander": "^14.0.3",
+    "express": "^5.2.1",
+    "multer": "^2.1.1",
+    "playwright": "^1.58.2",
+    "yaml": "^2.8.3",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@electron/packager": "^19.1.0",
+    "@types/express": "^5.0.6",
+    "@types/multer": "^2.1.0",
+    "@types/node": "^25.5.0",
+    "electron": "^41.1.0",
+    "tsx": "^4.21.0",
+    "typescript": "^6.0.2"
+  }
+}

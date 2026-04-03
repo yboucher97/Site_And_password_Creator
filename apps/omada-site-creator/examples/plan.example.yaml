@@ -1,0 +1,36 @@
+version: 1
+
+controller:
+  organizationName: Opti-plex
+  baseUrl: https://use1-omada-cloud.tplinkcloud.com/
+  browserChannel: msedge
+  headless: false
+  deviceAccount:
+    username: admin
+    password: change-me-device-password
+
+execution:
+  stopOnError: true
+  screenshots: true
+
+sites:
+  - name: Store-001
+    region: Canada
+    timezone: America/Toronto
+    scenario: Office
+    lans:
+      - name: "10"
+        vlanId: 10
+      - name: "20"
+        vlanId: 20
+    wlanGroups:
+      - name: Store-Staff
+        ssids:
+          - name: Store-Staff
+            security: wpa2_psk
+            password: change-me-staff
+      - name: Store-Guest
+        ssids:
+          - name: Store-Guest
+            security: wpa2_psk
+            password: change-me-guest

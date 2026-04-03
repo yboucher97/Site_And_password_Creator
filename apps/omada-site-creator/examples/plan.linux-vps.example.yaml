@@ -1,0 +1,34 @@
+version: 1
+
+controller:
+  organizationName: Opti-plex
+  baseUrl: https://use1-omada-cloud.tplinkcloud.com/
+  browserChannel: chromium
+  headless: true
+
+execution:
+  stopOnError: true
+  screenshots: true
+  dryRun: false
+
+sites:
+  - name: Linux-VPS-Example
+    region: Canada
+    timezone: America/Toronto
+    scenario: Office
+    lans:
+      - name: "10"
+        vlanId: 10
+      - name: "20"
+        vlanId: 20
+    wlanGroups:
+      - name: ssid10
+        ssids:
+          - name: ssid10
+            security: wpa2_psk
+            password: change-me
+      - name: ssid20
+        ssids:
+          - name: ssid20
+            security: wpa2_psk
+            password: change-me
