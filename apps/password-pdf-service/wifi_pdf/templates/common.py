@@ -20,22 +20,23 @@ EN_TITLE = "English Instructions:"
 KEEP_LINE = "Gardez cette feuille comme référence | Keep this paper for future use"
 TECH_TITLE = "Support technique | Technical support"
 CLOSING_LINE = "Opticable | support@opticable.ca | 514-316-7236 #2"
-QR_NOTE_FR = "À l'aide de votre appareil intelligent, vous pouvez scanner ce code QR pour accéder à votre réseau WiFi automatiquement sans y rentrer un mot de passe."
-QR_NOTE_EN = "With the help of your phone/tablet, you can scan this QR code to access your WiFi Network automatically."
+QR_NOTE_FR = "À l'aide de votre appareil intelligent, vous pouvez scanner ce code QR pour accéder à votre réseau WiFi automatiquement sans y entrer de mot de passe."
+QR_NOTE_EN = "With the help of your phone/tablet, you can scan this QR code to access your WiFi network automatically."
 
 FR_ITEMS = [
-    "Vous trouverez ci-joint le nom du réseau et le mot de passe à utiliser pour se connecter au réseau",
+    "Vous trouverez en haut de cette page le nom du réseau auquel vous connecter ainsi que le mot de passe à utiliser.",
     "Veuillez respecter les minuscules et majuscules dans le mot de passe",
     "L’utilisation d’internet est illimitée (téléchargement)",
-    "Lorsque vous vous branchez au réseau internet de l’immeuble, vous reconnaissez avoir lu et accepté les termes et conditions sur cette page : wifiplex.ca/termes",
-    "Tous vos appareils sont compatibles avec le Wifi. Veuillez contacter notre équipe de support si l'un de vos périphériques n'arrive pas à se connecter.",
+    "Lorsque vous vous branchez au réseau internet de l’immeuble, vous reconnaissez avoir lu et accepté les termes et conditions sur cette page : opticable.ca/internet/termes",
+    "Tous vos appareils sont compatibles avec le WiFi. Veuillez contacter notre équipe de support si l'un de vos périphériques n'arrive pas à se connecter.",
 ]
 
 EN_ITEMS = [
+    "At the top of this page, you will find the name of your network and the password required to connect.",
     "Please respect lower and upper cases in the password",
     "Internet usage is unlimited (Download)",
-    "When you connect to the building’s internet network, you acknowledge that you have read and accepted the terms and conditions on this page : wifiplex.ca/terms",
-    "All your devices are compatible with the Wifi. If some require a special configuration, please contact us if any of your devices cannot connect",
+    "When you connect to the building’s internet network, you acknowledge that you have read and accepted the terms and conditions on this page : opticable.ca/internet/terms",
+    "All your devices are compatible with WiFi. If some require a special configuration, please contact us if any of your devices cannot connect",
 ]
 
 TECH_ITEMS = [
