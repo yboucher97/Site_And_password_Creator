@@ -25,6 +25,8 @@ API_VERSION = "1.2.0"
 PRIMARY_WEBHOOK_PATH = "/v1/site-and-password/webhooks/zoho"
 PRIMARY_JOB_CREATE_PATH = "/v1/site-and-password/jobs"
 PRIMARY_JOB_STATUS_PATH = "/v1/site-and-password/jobs/{job_id}"
+WORKFLOW_CANONICAL_PATH = "/v1/workflows/site-and-password"
+WORKFLOW_CANONICAL_JOB_STATUS_PATH = "/v1/workflows/site-and-password/jobs/{job_id}"
 ZOHO_OAUTH_START_PATH = "/v1/integrations/zoho/oauth/start"
 ZOHO_OAUTH_CALLBACK_PATH = "/v1/integrations/zoho/oauth/callback"
 ZOHO_OAUTH_STATUS_PATH = "/v1/integrations/zoho/oauth/status"
@@ -44,6 +46,7 @@ class PlatformIndexResponse(BaseModel):
     docs_url: str
     openapi_url: str
     primary_webhook: str
+    canonical_workflow: str
     services: list[ServiceRoute]
 
 
@@ -114,8 +117,8 @@ def _service_catalog() -> list[ServiceRoute]:
     return [
         ServiceRoute(
             name="workflow-api",
-            path_prefix="/v1/site-and-password",
-            description="Primary public API for webhook intake, job creation, and workflow job status.",
+            path_prefix="/v1/workflows/site-and-password",
+            description="Primary public workflow API for webhook intake and job tracking.",
         ),
         ServiceRoute(
             name="password-pdf-service",
@@ -276,6 +279,7 @@ async def platform_index() -> PlatformIndexResponse:
         docs_url=PLATFORM_DOCS_PATH,
         openapi_url=PLATFORM_OPENAPI_PATH,
         primary_webhook=PRIMARY_WEBHOOK_PATH,
+        canonical_workflow=WORKFLOW_CANONICAL_PATH,
         services=_service_catalog(),
     )
 
@@ -380,6 +384,7 @@ async def zoho_oauth_callback(
 
 @app.get("/jobs/{job_id}", response_model=JobLookupResponse, tags=["compatibility"])
 @app.get(PRIMARY_JOB_STATUS_PATH, response_model=JobLookupResponse, tags=["site-and-password"])
+@app.get(WORKFLOW_CANONICAL_JOB_STATUS_PATH, response_model=JobLookupResponse, tags=["site-and-password"])
 async def get_job(job_id: str) -> dict:
     job = job_store.get(job_id)
     if job is None:
@@ -416,11 +421,12 @@ def _create_job_from_payload(payload: dict[str, Any]) -> WorkflowJobAcceptedResp
         record_count=len(batch.records),
         credential_mode=batch.credential_mode,
         workflow_mode=batch.workflow_mode,
-        job_status_url=PRIMARY_JOB_STATUS_PATH.replace("{job_id}", job_id),
+        job_status_url=WORKFLOW_CANONICAL_JOB_STATUS_PATH.replace("{job_id}", job_id),
     )
 
 
 @app.post(PRIMARY_JOB_CREATE_PATH, response_model=WorkflowJobAcceptedResponse, tags=["site-and-password"])
+@app.post(WORKFLOW_CANONICAL_PATH, response_model=WorkflowJobAcceptedResponse, tags=["site-and-password"])
 @app.post("/webhooks/zoho/site-and-password", response_model=WorkflowJobAcceptedResponse, tags=["compatibility"])
 @app.post("/webhooks/zoho/site-workflow", response_model=WorkflowJobAcceptedResponse, tags=["compatibility"])
 @app.post("/v1/site-and-password/webhooks/zoho", response_model=WorkflowJobAcceptedResponse, tags=["site-and-password"])

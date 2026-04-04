@@ -26,6 +26,8 @@ This app is the orchestration layer inside the monorepo. It sits in front of:
 - `GET /v1/integrations/zoho/oauth/start`
 - `GET /v1/integrations/zoho/oauth/callback`
 - `GET /v1/integrations/zoho/oauth/status`
+- `POST /v1/workflows/site-and-password`
+- `GET /v1/workflows/site-and-password/jobs/{job_id}`
 - `GET /v1/site-and-password/health`
 - `GET /v1/site-and-password/jobs/{job_id}`
 - `POST /v1/site-and-password/jobs`
@@ -35,7 +37,7 @@ This app is the orchestration layer inside the monorepo. It sits in front of:
 - `POST /webhooks/zoho/site-and-password`
 - `POST /webhooks/zoho/site-workflow`
 
-The unversioned paths remain as compatibility aliases.
+The unversioned paths and the older `/v1/site-and-password/*` paths remain as compatibility aliases.
 
 ## Credential Modes
 

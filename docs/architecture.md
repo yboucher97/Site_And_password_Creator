@@ -10,6 +10,18 @@ Caddy routes path prefixes to internal localhost services.
 
 ## Public Paths
 
+Current public paths are a mix of platform routes and compatibility routes.
+
+Long-term, the public API should converge on:
+
+- `/v1/system/*`
+- `/v1/integrations/*`
+- `/v1/workflows/*`
+- `/v1/omada/*`
+- `/v1/zoho/*`
+
+See [API Blueprint](./api-blueprint.md).
+
 - `/`
 - `/docs`
 - `/openapi.json`
@@ -28,6 +40,7 @@ Caddy routes path prefixes to internal localhost services.
 - owns the OpenAPI surface
 - receives webhook requests
 - coordinates downstream services
+- should remain the orchestrator for multi-step flows
 
 ### Password PDF Service
 
@@ -47,6 +60,18 @@ Caddy routes path prefixes to internal localhost services.
 - multiple localhost services
 - one documented API surface
 - shared server-managed Zoho credential file
+
+## Current Workflow Fan-Out
+
+For the site-and-password automation, one inbound webhook currently triggers:
+
+1. workflow normalization
+2. password and SSID generation when needed
+3. PDF generation
+4. WorkDrive upload
+5. optional Omada site creation
+
+That is one public workflow request fanning out into multiple internal service calls.
 
 ## Deployment Model
 

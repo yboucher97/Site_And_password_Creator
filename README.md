@@ -12,6 +12,7 @@ Repository docs:
 
 - [Repository Structure](./docs/repository-structure.md)
 - [Architecture](./docs/architecture.md)
+- [API Blueprint](./docs/api-blueprint.md)
 - [Deploy Notes](./deploy/README.md)
 
 ## Install On One Linux VM
@@ -123,6 +124,8 @@ With `SITE_AND_PASSWORD_API_HOST=api01.opticable.ca`, Caddy exposes:
 - `https://api01.opticable.ca/v1/integrations/zoho/oauth/start`
 - `https://api01.opticable.ca/v1/integrations/zoho/oauth/callback`
 - `https://api01.opticable.ca/v1/integrations/zoho/oauth/status`
+- `https://api01.opticable.ca/v1/workflows/site-and-password`
+- `https://api01.opticable.ca/v1/workflows/site-and-password/jobs/{job_id}`
 - `https://api01.opticable.ca/v1/site-and-password/health`
 - `https://api01.opticable.ca/v1/site-and-password/jobs`
 - `https://api01.opticable.ca/v1/site-and-password/jobs/{job_id}`
@@ -131,12 +134,13 @@ With `SITE_AND_PASSWORD_API_HOST=api01.opticable.ca`, Caddy exposes:
 - `https://api01.opticable.ca/omada/api/health`
 - `https://api01.opticable.ca/workflow/health`
 
-The root host proxies to the workflow API by default, so Zoho can post directly to:
+The root host proxies to the workflow API by default, so Zoho can post directly to the canonical workflow route:
 
-- `https://api01.opticable.ca/v1/site-and-password/webhooks/zoho`
+- `https://api01.opticable.ca/v1/workflows/site-and-password`
 
 Compatibility aliases still work:
 
+- `https://api01.opticable.ca/v1/site-and-password/webhooks/zoho`
 - `https://api01.opticable.ca/webhooks/zoho/site-and-password`
 - `https://api01.opticable.ca/webhooks/zoho/site-workflow`
 - `https://api01.opticable.ca/health`
