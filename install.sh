@@ -47,6 +47,9 @@ ZOHO_OAUTH_CLIENT_SECRET="${ZOHO_OAUTH_CLIENT_SECRET:-${ZOHO_WORKDRIVE_CLIENT_SE
 ZOHO_OAUTH_ACCOUNTS_BASE_URL="${ZOHO_OAUTH_ACCOUNTS_BASE_URL:-}"
 ZOHO_OAUTH_REDIRECT_URI="${ZOHO_OAUTH_REDIRECT_URI:-}"
 ZOHO_OAUTH_SCOPES="${ZOHO_OAUTH_SCOPES:-WorkDrive.files.READ,WorkDrive.files.CREATE,WorkDrive.files.UPDATE}"
+AUTO_SWAP_ENABLED="${AUTO_SWAP_ENABLED:-true}"
+AUTO_SWAP_SIZE_GB="${AUTO_SWAP_SIZE_GB:-4}"
+AUTO_SWAP_PATH="${AUTO_SWAP_PATH:-/swapfile}"
 
 log() {
   printf '[%s] %s\n' "${APP_NAME}" "$*"
@@ -95,6 +98,42 @@ ensure_packages() {
   if ! command -v node >/dev/null 2>&1; then
     curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
     apt-get install -y nodejs
+  fi
+}
+
+ensure_swap() {
+  if [[ "${AUTO_SWAP_ENABLED,,}" != "true" ]]; then
+    return
+  fi
+
+  local mem_kb
+  mem_kb="$(awk '/MemTotal/ { print $2 }' /proc/meminfo)"
+  if [[ -z "${mem_kb}" ]]; then
+    return
+  fi
+
+  if swapon --show=NAME --noheadings 2>/dev/null | grep -q .; then
+    return
+  fi
+
+  # Small cloud VMs are unstable under Playwright without swap.
+  if (( mem_kb > 2097152 )); then
+    return
+  fi
+
+  if [[ -f "${AUTO_SWAP_PATH}" ]]; then
+    chmod 600 "${AUTO_SWAP_PATH}"
+    mkswap "${AUTO_SWAP_PATH}" >/dev/null 2>&1 || true
+    swapon "${AUTO_SWAP_PATH}" >/dev/null 2>&1 || true
+  else
+    fallocate -l "${AUTO_SWAP_SIZE_GB}G" "${AUTO_SWAP_PATH}"
+    chmod 600 "${AUTO_SWAP_PATH}"
+    mkswap "${AUTO_SWAP_PATH}" >/dev/null
+    swapon "${AUTO_SWAP_PATH}"
+  fi
+
+  if ! grep -Fq "${AUTO_SWAP_PATH} none swap sw 0 0" /etc/fstab; then
+    echo "${AUTO_SWAP_PATH} none swap sw 0 0" >> /etc/fstab
   fi
 }
 
@@ -654,6 +693,10 @@ print_summary() {
   echo "  - ${PDF_SERVICE_NAME}"
   echo "  - ${OMADA_SERVICE_NAME}"
   echo "  - ${WORKFLOW_SERVICE_NAME}"
+  if swapon --show=NAME --noheadings 2>/dev/null | grep -q .; then
+    echo "Swap:"
+    swapon --show=NAME,SIZE --noheadings | sed 's/^/  - /'
+  fi
   echo
   echo "Local checks:"
   echo "  - curl http://127.0.0.1:${PDF_PORT}/health"
@@ -672,12 +715,18 @@ print_summary() {
     echo "Zoho OAuth status: https://${PUBLIC_API_HOST}/v1/integrations/zoho/oauth/status"
     echo "PDF health:       https://${PUBLIC_API_HOST}/pdf/health"
     echo "Omada health:     https://${PUBLIC_API_HOST}/omada/api/health"
+    echo
+    echo "Next step:"
+    echo "  1. Open Zoho OAuth start URL in a browser once."
+    echo "  2. Approve access."
+    echo "  3. Check status at https://${PUBLIC_API_HOST}/v1/integrations/zoho/oauth/status"
   fi
 }
 
 main() {
   require_root
   ensure_packages
+  ensure_swap
   ensure_secrets
   ensure_users_and_dirs
   sync_repo

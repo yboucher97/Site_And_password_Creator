@@ -28,6 +28,7 @@ What it does:
 
 - clones or updates this repo into `/opt/opticable-api-platform`
 - installs Python, Node.js, Caddy, and Playwright Chromium
+- creates swap automatically on small VMs when no swap exists
 - creates and enables:
   - `password-pdf-generator.service`
   - `omada-site-creator.service`
@@ -70,6 +71,8 @@ Optional installer variables:
 - `ZOHO_OAUTH_REDIRECT_URI`
 - `ZOHO_OAUTH_SCOPES`
 - `ZOHO_OAUTH_CREDENTIALS_PATH`
+- `AUTO_SWAP_ENABLED`
+- `AUTO_SWAP_SIZE_GB`
 - `ZOHO_WORKDRIVE_CLIENT_ID`
 - `ZOHO_WORKDRIVE_CLIENT_SECRET`
 - `ZOHO_WORKDRIVE_REFRESH_TOKEN`
