@@ -10,10 +10,11 @@ This app is the orchestration layer inside the monorepo. It sits in front of:
 1. receive the inbound webhook
 2. normalize the payload
 3. generate SSIDs and passwords if `credential_mode=generated`
-4. call the PDF generator
-5. wait for PDF generation and WorkDrive upload to finish
-6. if `workflow_mode=pdf_and_site`, build `omada-plan.yaml`
-7. call Omada site creation
+4. always build `omada-plan.yaml`
+5. if the workflow includes PDFs, call the PDF generator
+6. if the workflow includes PDFs, wait for PDF generation and WorkDrive upload to finish
+7. if `workdrive_folder_id` is present, upload `omada-plan.yaml` to WorkDrive
+8. if the workflow includes Omada, call Omada site creation
 
 ## Endpoints
 
@@ -63,13 +64,22 @@ The unversioned paths and the older `/v1/site-and-password/*` paths remain as co
 
 - generate PDFs and exports
 - upload to WorkDrive
+- also generate and upload `omada-plan.yaml`
 - skip Omada
 
 `pdf_and_site`
 
 - generate PDFs and exports
 - upload to WorkDrive
+- also generate and upload `omada-plan.yaml`
 - then create the Omada site
+
+`site_only`
+
+- skip PDFs and password documents
+- still generate `omada-plan.yaml`
+- upload `omada-plan.yaml` to WorkDrive when `workdrive_folder_id` is provided
+- create the Omada site directly
 
 ## Zoho OAuth
 
@@ -112,6 +122,7 @@ uvicorn workflow.api:app --host 127.0.0.1 --port 8100
 - Default suffix length: `2`
 - Default suffix casing: uppercase
 - Default `workflow_mode`: `pdf_and_site`
+- `omada-plan.yaml` is generated for every workflow job
 - If `credential_mode` is omitted, the workflow still infers generated vs predefined for backward compatibility
 - The FastAPI Swagger docs are available at `/docs`
 - The OpenAPI document is available at `/openapi.json`

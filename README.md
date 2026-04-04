@@ -198,7 +198,7 @@ The PDF service reads the shared Zoho credential file automatically, so new toke
 Supported webhook flags:
 
 - `credential_mode: generated | predefined`
-- `workflow_mode: pdf_only | pdf_and_site`
+- `workflow_mode: pdf_only | pdf_and_site | site_only`
 
 `generated`:
 
@@ -215,13 +215,22 @@ Supported webhook flags:
 
 - creates PDFs, merged PDF, ZIP, and text export
 - uploads to WorkDrive
+- also writes `omada-plan.yaml` and uploads it to WorkDrive
 - skips Omada
 
 `pdf_and_site`:
 
 - creates PDFs first
 - uploads to WorkDrive
+- also writes `omada-plan.yaml` and uploads it to WorkDrive
 - then creates the Omada site from the same generated batch
+
+`site_only`:
+
+- skips PDF/password document generation
+- writes `omada-plan.yaml`
+- uploads `omada-plan.yaml` to WorkDrive when `workdrive_folder_id` is provided
+- creates the Omada site directly
 
 ## Suggested Deployment Model
 

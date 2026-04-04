@@ -233,6 +233,18 @@ WORKFLOW_PAYLOAD_EXAMPLES = {
             "passwords": ["1234ab5678!@", "5678cd1234#$"],
         },
     },
+    "predefined_site_only": {
+        "summary": "Predefined credentials, Omada site only",
+        "value": {
+            "building_name": "Standalone Site Template",
+            "site_name": "Standalone Site Template",
+            "credential_mode": "predefined",
+            "workflow_mode": "site_only",
+            "template_name": "Opticable_Template_01",
+            "ssids": ["APT_401_AA", "APT_402_BB"],
+            "passwords": ["1234ab5678!@", "5678cd1234#$"],
+        },
+    },
 }
 
 

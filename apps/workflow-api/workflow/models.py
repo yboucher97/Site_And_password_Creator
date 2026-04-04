@@ -43,7 +43,7 @@ CREDENTIAL_MODE_KEYS = ("credential_mode", "Credential_Mode")
 SAFE_PASSWORD_LETTERS = "abcdefghjkmnopqrstuvwxyz"
 
 CredentialMode = Literal["generated", "predefined"]
-WorkflowMode = Literal["pdf_only", "pdf_and_site"]
+WorkflowMode = Literal["pdf_only", "pdf_and_site", "site_only"]
 
 
 class WorkflowRecord(BaseModel):
@@ -205,8 +205,8 @@ def _parse_workflow_mode(value: Any) -> WorkflowMode:
         return "pdf_and_site"
 
     normalized = text.strip().lower().replace("-", "_").replace(" ", "_")
-    if normalized not in {"pdf_only", "pdf_and_site"}:
-        raise ValueError("workflow_mode must be 'pdf_only' or 'pdf_and_site'.")
+    if normalized not in {"pdf_only", "pdf_and_site", "site_only"}:
+        raise ValueError("workflow_mode must be 'pdf_only', 'pdf_and_site', or 'site_only'.")
     return normalized  # type: ignore[return-value]
 
 
