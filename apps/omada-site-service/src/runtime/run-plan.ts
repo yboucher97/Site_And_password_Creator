@@ -243,9 +243,13 @@ async function writeLiveSiteArtifact(
   const snapshot = enrichSnapshotWithPlanPasswords(await portal.buildSiteSnapshot(site.name), site);
   const fileName = `live-site-${slugify(site.name)}.yaml`;
   const outputPath = resolve(reporter.outputDir, fileName);
-  await writeFile(outputPath, stringifyYaml(snapshot), "utf8");
+  const yamlContent = stringifyYaml(snapshot);
+  await writeFile(outputPath, yamlContent, "utf8");
   await chmod(outputPath, 0o644).catch(() => undefined);
-  reporter.addArtifact("live-site-yaml", fileName, outputPath);
+  reporter.addArtifact("live-site-yaml", fileName, outputPath, {
+    content: yamlContent,
+    contentEncoding: "utf-8",
+  });
   reporter.log("info", `Wrote live site snapshot "${fileName}".`);
 }
 

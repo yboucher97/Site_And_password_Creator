@@ -27,6 +27,8 @@ export interface RunArtifact {
   type: string;
   name: string;
   path: string;
+  content?: string;
+  contentEncoding?: string;
 }
 
 export interface RunReport {
@@ -121,8 +123,21 @@ export class RunReporter {
     return path;
   }
 
-  public addArtifact(type: string, name: string, path: string): void {
-    this.report.artifacts.push({ type, name, path });
+  public addArtifact(
+    type: string,
+    name: string,
+    path: string,
+    extra?: {
+      content?: string;
+      contentEncoding?: string;
+    },
+  ): void {
+    this.report.artifacts.push({
+      type,
+      name,
+      path,
+      ...(extra ?? {}),
+    });
   }
 
   public async finalize(status: "success" | "failed"): Promise<RunReport> {

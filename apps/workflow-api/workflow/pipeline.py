@@ -112,12 +112,22 @@ class SiteWorkflowPipeline:
             if str(artifact.get("type", "")).strip() != "live-site-yaml":
                 continue
 
-            artifact_path = Path(str(artifact.get("path", "")).strip())
-            if not artifact_path.exists():
-                self.logger.warning("Omada live-site artifact path is missing: %s", artifact_path)
-                continue
-
-            upload_result = workdrive_client.upload_file(artifact_path, parent_folder_id)
+            artifact_name = str(artifact.get("name", "")).strip() or "live-site.yaml"
+            artifact_content = artifact.get("content")
+            if isinstance(artifact_content, str):
+                encoding = str(artifact.get("contentEncoding", "utf-8") or "utf-8")
+                upload_result = workdrive_client.upload_bytes(
+                    artifact_content.encode(encoding),
+                    artifact_name,
+                    parent_folder_id,
+                    content_type="application/x-yaml",
+                )
+            else:
+                artifact_path = Path(str(artifact.get("path", "")).strip())
+                if not artifact_path.exists():
+                    self.logger.warning("Omada live-site artifact path is missing: %s", artifact_path)
+                    continue
+                upload_result = workdrive_client.upload_file(artifact_path, parent_folder_id)
             upload_result["artifact_type"] = "live-site-yaml"
             uploads.append(upload_result)
 

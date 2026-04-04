@@ -22,28 +22,37 @@ class WorkflowWorkDriveClient:
         self._access_token: str | None = None
 
     def upload_file(self, path: Path, parent_folder_id: str) -> dict[str, Any]:
+        with path.open("rb") as handle:
+            content_type = mimetypes.guess_type(path.name)[0] or "application/octet-stream"
+            return self.upload_bytes(handle.read(), path.name, parent_folder_id, content_type=content_type)
+
+    def upload_bytes(
+        self,
+        content: bytes,
+        file_name: str,
+        parent_folder_id: str,
+        *,
+        content_type: str = "application/octet-stream",
+    ) -> dict[str, Any]:
         timeout = httpx.Timeout(60.0, connect=20.0)
         with httpx.Client(timeout=timeout) as client:
             headers = self._get_auth_headers(client)
             folder_id = self._resolve_upload_folder_id(client, headers, parent_folder_id)
             params = {
                 "parent_id": folder_id,
-                "filename": path.name,
+                "filename": file_name,
                 "override-name-exist": "true",
             }
-
-            with path.open("rb") as handle:
-                content_type = mimetypes.guess_type(path.name)[0] or "application/octet-stream"
-                response = client.post(
-                    f"{self._api_base_url()}/upload",
-                    headers=headers,
-                    params=params,
-                    files={"content": (path.name, handle, content_type)},
-                )
+            response = client.post(
+                f"{self._api_base_url()}/upload",
+                headers=headers,
+                params=params,
+                files={"content": (file_name, content, content_type)},
+            )
 
         if response.status_code >= 400:
             raise WorkflowWorkDriveError(
-                f"WorkDrive upload failed for '{path.name}' with status {response.status_code}: {response.text}"
+                f"WorkDrive upload failed for '{file_name}' with status {response.status_code}: {response.text}"
             )
 
         try:
@@ -51,9 +60,9 @@ class WorkflowWorkDriveClient:
         except json.JSONDecodeError:
             payload = {"raw_response": response.text}
 
-        self.logger.info("Uploaded workflow artifact '%s' to WorkDrive folder %s", path.name, folder_id)
+        self.logger.info("Uploaded workflow artifact '%s' to WorkDrive folder %s", file_name, folder_id)
         return {
-            "filename": path.name,
+            "filename": file_name,
             "folder_id": folder_id,
             "status_code": response.status_code,
             "response": payload,
