@@ -56,11 +56,10 @@ Canonical request shape:
 }
 ```
 
-Compatibility note:
+Input notes:
 
-- the code also accepts a raw JSON array of records for backward compatibility
 - the recommended production schema is the top-level object above because it carries building metadata and the per-batch WorkDrive folder id
-- `template_name` accepts `Opticable_Template_01`, `opticable_template_01`, `basic_template`, `legacy_template`, or `modern_template`
+- `template_name` is `Opticable_Template_01`
 - the API also accepts a thin CRM-style payload and normalizes it server-side
 
 Thin CRM-style payload accepted by the VM:

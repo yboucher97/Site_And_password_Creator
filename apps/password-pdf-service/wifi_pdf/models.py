@@ -9,7 +9,7 @@ from .payload_parser import normalize_payload
 
 
 AuthType = Literal["WPA", "WEP", "nopass"]
-TemplateName = Literal["basic_template", "legacy_template", "modern_template", "opticable_template_01", "Opticable_Template_01"]
+TemplateName = Literal["Opticable_Template_01"]
 
 
 class WifiRecord(BaseModel):

@@ -95,8 +95,8 @@ def draw_opticable_template_01(
     header_qr_width = 92
     header_qr_gap = 12
     instruction_height = 236
-    support_height = 114
-    support_qr_card = 92
+    support_height = 122
+    support_qr_card = 100
 
     canvas.setTitle(f"{building_name} - {record.ssid}")
     canvas.setAuthor(settings.branding.brand_name)
@@ -190,8 +190,8 @@ def draw_opticable_template_01(
 
     support_y = keep_y - 126
     draw_card(canvas, margin, support_y, panel_width, support_height, theme["support_background"], radius, theme["support_border"])
-    support_content_x = margin + 32
-    support_qr_x = margin + panel_width - support_qr_card - 32
+    support_content_x = margin + 36
+    support_qr_x = margin + panel_width - support_qr_card - 36
     support_qr_y = support_y + 11
     support_content_width = support_qr_x - support_content_x
     _draw_section_title(canvas, support_content_x, support_y + support_height - 18, support_content_width, SUPPORT_TITLE, fonts)

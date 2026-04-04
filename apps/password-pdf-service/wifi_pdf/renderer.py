@@ -11,12 +11,7 @@ from reportlab.pdfgen import canvas
 from .config import AppSettings
 from .exceptions import RenderingError
 from .models import WifiRecord
-from .templates import (
-    draw_basic_template,
-    draw_legacy_template,
-    draw_modern_template,
-    draw_opticable_template_01,
-)
+from .templates import draw_opticable_template_01
 
 
 PAGE_SIZE_MAP = {
@@ -24,13 +19,7 @@ PAGE_SIZE_MAP = {
     "LETTER": LETTER,
 }
 
-TEMPLATE_RENDERERS = {
-    "basic_template": draw_basic_template,
-    "legacy_template": draw_legacy_template,
-    "modern_template": draw_modern_template,
-    "opticable_template_01": draw_opticable_template_01,
-    "Opticable_Template_01": draw_opticable_template_01,
-}
+ACTIVE_TEMPLATE_NAME = "Opticable_Template_01"
 
 SYSTEM_FONT_PATHS = {
     "regular": [
@@ -101,13 +90,12 @@ class PdfRenderer:
     ) -> Path:
         page_size = PAGE_SIZE_MAP.get(self.settings.layout.page_size.upper(), LETTER)
         output_path.parent.mkdir(parents=True, exist_ok=True)
-        template_renderer = TEMPLATE_RENDERERS.get(template_name)
-        if template_renderer is None:
-            raise RenderingError(f"Unknown template_name '{template_name}'.")
+        if template_name != ACTIVE_TEMPLATE_NAME:
+            raise RenderingError(f"Unknown template_name '{template_name}'. Expected '{ACTIVE_TEMPLATE_NAME}'.")
 
         try:
             pdf = canvas.Canvas(str(output_path), pagesize=page_size)
-            template_renderer(
+            draw_opticable_template_01(
                 pdf,
                 record=record,
                 building_name=building_name,

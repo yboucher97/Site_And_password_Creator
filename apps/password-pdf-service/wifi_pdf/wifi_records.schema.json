@@ -137,14 +137,8 @@
       "title": "Workdrive Folder Id"
     },
     "template_name": {
+      "const": "Opticable_Template_01",
       "default": "Opticable_Template_01",
-      "enum": [
-        "basic_template",
-        "legacy_template",
-        "modern_template",
-        "opticable_template_01",
-        "Opticable_Template_01"
-      ],
       "title": "Template Name",
       "type": "string"
     },
@@ -163,5 +157,5 @@
   ],
   "title": "WiFi PDF Batch Request",
   "type": "object",
-  "description": "Recommended top-level schema for tenant WiFi PDF generation. A raw array of records is also accepted for backward compatibility."
+  "description": "Recommended top-level schema for tenant WiFi PDF generation."
 }
