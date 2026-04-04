@@ -95,6 +95,50 @@ async function readLoginError(page: Page): Promise<string | null> {
   return text.length > 0 ? text : null;
 }
 
+async function dismissPostLoginPrompts(page: Page): Promise<void> {
+  const agreeButton = await findFirstVisible(page, [
+    (root) => root.getByRole("button", { name: /^Agree$/i }),
+    (root) => root.getByRole("link", { name: /^Agree$/i }),
+    (root) => root.getByText(/^Agree$/i),
+  ], 1200);
+
+  if (agreeButton) {
+    await agreeButton.click().catch(() => undefined);
+    await page.waitForTimeout(500);
+  }
+
+  const okButton = await findFirstVisible(page, [
+    (root) => root.getByRole("button", { name: /^OK$/i }),
+    (root) => root.getByText(/^OK$/i),
+  ], 1200);
+
+  if (okButton) {
+    await okButton.click().catch(() => undefined);
+    await page.waitForTimeout(500);
+  }
+}
+
+async function waitForLoginRedirect(page: Page, timeoutMs = 90000): Promise<boolean> {
+  const startedAt = Date.now();
+
+  while (Date.now() - startedAt < timeoutMs) {
+    const currentUrl = page.url();
+    if (!currentUrl.includes("id.tplinkcloud.com")) {
+      await dismissPostLoginPrompts(page);
+      return true;
+    }
+
+    const errorText = await readLoginError(page);
+    if (errorText) {
+      throw new Error(`Automatic TP-Link cloud login failed: ${errorText}`);
+    }
+
+    await page.waitForTimeout(1000);
+  }
+
+  return false;
+}
+
 async function attemptAutomaticCloudLogin(page: Page, controller: ControllerSettings): Promise<boolean> {
   const cloudAccount = resolveCloudAccount(controller);
   if (!cloudAccount) {
@@ -126,9 +170,11 @@ async function attemptAutomaticCloudLogin(page: Page, controller: ControllerSett
     (root) => root.locator("a").filter({ hasText: /^Sign In$/i }),
   ], 5000);
 
-  const redirectSucceeded = await page.waitForURL((url) => !url.toString().includes("id.tplinkcloud.com"), { timeout: 30000 })
-    .then(() => true)
-    .catch(() => false);
+  let redirectSucceeded = await waitForLoginRedirect(page, 45000);
+  if (!redirectSucceeded) {
+    await page.locator("#form_item_password").press("Enter").catch(() => undefined);
+    redirectSucceeded = await waitForLoginRedirect(page, 45000);
+  }
 
   if (redirectSucceeded) {
     return true;
