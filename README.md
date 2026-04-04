@@ -49,6 +49,12 @@ Optional installer variables:
 - `SITE_AND_PASSWORD_WORKFLOW_API_KEY`
 - `PASSWORD_PDF_ENABLE_WORKDRIVE`
 - `PASSWORD_PDF_ZOHO_REGION`
+- `ZOHO_OAUTH_CLIENT_ID`
+- `ZOHO_OAUTH_CLIENT_SECRET`
+- `ZOHO_OAUTH_ACCOUNTS_BASE_URL`
+- `ZOHO_OAUTH_REDIRECT_URI`
+- `ZOHO_OAUTH_SCOPES`
+- `ZOHO_OAUTH_CREDENTIALS_PATH`
 - `ZOHO_WORKDRIVE_CLIENT_ID`
 - `ZOHO_WORKDRIVE_CLIENT_SECRET`
 - `ZOHO_WORKDRIVE_REFRESH_TOKEN`
@@ -100,6 +106,9 @@ With `SITE_AND_PASSWORD_API_HOST=api01.opticable.ca`, Caddy exposes:
 - `https://api01.opticable.ca/openapi.json`
 - `https://api01.opticable.ca/v1/system/health`
 - `https://api01.opticable.ca/v1/system/catalog`
+- `https://api01.opticable.ca/v1/integrations/zoho/oauth/start`
+- `https://api01.opticable.ca/v1/integrations/zoho/oauth/callback`
+- `https://api01.opticable.ca/v1/integrations/zoho/oauth/status`
 - `https://api01.opticable.ca/v1/site-and-password/health`
 - `https://api01.opticable.ca/v1/site-and-password/jobs`
 - `https://api01.opticable.ca/v1/site-and-password/jobs/{job_id}`
@@ -128,6 +137,34 @@ The public workflow service now exposes a real OpenAPI surface:
 - root platform index: `https://api01.opticable.ca/`
 
 This gives you one documented master API endpoint for current and future webhook-driven apps.
+
+## Zoho OAuth
+
+The platform now supports a proper server-side Zoho OAuth flow for WorkDrive and optional CRM access.
+
+Recommended Zoho client type:
+
+- `Server-based Application`
+
+Suggested redirect URI:
+
+- `https://api01.opticable.ca/v1/integrations/zoho/oauth/callback`
+
+Typical setup:
+
+1. set `ZOHO_OAUTH_CLIENT_ID` and `ZOHO_OAUTH_CLIENT_SECRET`
+2. install the VM
+3. open `https://api01.opticable.ca/v1/integrations/zoho/oauth/start?api_key=YOUR_WORKFLOW_API_KEY`
+4. sign in to Zoho and approve access
+5. the platform stores the refresh token in the shared server credential file
+
+Useful endpoints:
+
+- `GET /v1/integrations/zoho/oauth/start`
+- `GET /v1/integrations/zoho/oauth/callback`
+- `GET /v1/integrations/zoho/oauth/status`
+
+The PDF service reads the shared Zoho credential file automatically, so new tokens are picked up on the next job without restarting the stack.
 
 ## Workflow Modes
 

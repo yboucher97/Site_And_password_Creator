@@ -7,6 +7,9 @@ REPO_REF="${SITE_AND_PASSWORD_CREATOR_REPO_REF:-main}"
 INSTALL_DIR="${SITE_AND_PASSWORD_CREATOR_INSTALL_DIR:-/opt/site-and-password-creator}"
 
 PUBLIC_API_HOST="${SITE_AND_PASSWORD_API_HOST:-}"
+SHARED_GROUP="${SITE_AND_PASSWORD_SHARED_GROUP:-siteandpassword}"
+SHARED_DATA_DIR="${SITE_AND_PASSWORD_SHARED_DATA_DIR:-/var/lib/site-and-password-creator/shared}"
+ZOHO_OAUTH_CREDENTIALS_PATH="${ZOHO_OAUTH_CREDENTIALS_PATH:-${SHARED_DATA_DIR}/zoho-oauth.json}"
 
 PDF_APP_DIR="${INSTALL_DIR}/apps/password-pdf-generator"
 PDF_SERVICE_NAME="${PASSWORD_PDF_SERVICE_NAME:-password-pdf-generator}"
@@ -39,6 +42,11 @@ OMADA_SITE_CREATOR_WEBHOOK_TOKEN="${OMADA_SITE_CREATOR_WEBHOOK_TOKEN:-}"
 SITE_AND_PASSWORD_WORKFLOW_API_KEY="${SITE_AND_PASSWORD_WORKFLOW_API_KEY:-${SITE_WORKFLOW_API_KEY:-}}"
 PASSWORD_PDF_ENABLE_WORKDRIVE="${PASSWORD_PDF_ENABLE_WORKDRIVE:-true}"
 PASSWORD_PDF_ZOHO_REGION="${PASSWORD_PDF_ZOHO_REGION:-com}"
+ZOHO_OAUTH_CLIENT_ID="${ZOHO_OAUTH_CLIENT_ID:-${ZOHO_WORKDRIVE_CLIENT_ID:-}}"
+ZOHO_OAUTH_CLIENT_SECRET="${ZOHO_OAUTH_CLIENT_SECRET:-${ZOHO_WORKDRIVE_CLIENT_SECRET:-}}"
+ZOHO_OAUTH_ACCOUNTS_BASE_URL="${ZOHO_OAUTH_ACCOUNTS_BASE_URL:-}"
+ZOHO_OAUTH_REDIRECT_URI="${ZOHO_OAUTH_REDIRECT_URI:-}"
+ZOHO_OAUTH_SCOPES="${ZOHO_OAUTH_SCOPES:-WorkDrive.files.READ,WorkDrive.files.CREATE,WorkDrive.files.UPDATE}"
 
 log() {
   printf '[%s] %s\n' "${APP_NAME}" "$*"
@@ -51,6 +59,26 @@ fail() {
 
 generate_secret() {
   od -An -N32 -tx1 /dev/urandom | tr -d ' \n'
+}
+
+resolve_zoho_accounts_base() {
+  case "${PASSWORD_PDF_ZOHO_REGION}" in
+    com)
+      printf '%s' "https://accounts.zoho.com"
+      ;;
+    eu)
+      printf '%s' "https://accounts.zoho.eu"
+      ;;
+    in)
+      printf '%s' "https://accounts.zoho.in"
+      ;;
+    com.au)
+      printf '%s' "https://accounts.zoho.com.au"
+      ;;
+    *)
+      fail "Unsupported PASSWORD_PDF_ZOHO_REGION: ${PASSWORD_PDF_ZOHO_REGION}"
+      ;;
+  esac
 }
 
 require_root() {
@@ -83,6 +111,10 @@ ensure_secrets() {
 }
 
 ensure_users_and_dirs() {
+  if ! getent group "${SHARED_GROUP}" >/dev/null 2>&1; then
+    groupadd --system "${SHARED_GROUP}"
+  fi
+
   if ! id -u "${PDF_SERVICE_USER}" >/dev/null 2>&1; then
     useradd --system --create-home --home "${PDF_DATA_DIR}" --shell /usr/sbin/nologin "${PDF_SERVICE_USER}"
   fi
@@ -93,7 +125,11 @@ ensure_users_and_dirs() {
     useradd --system --create-home --home "${WORKFLOW_DATA_DIR}" --shell /usr/sbin/nologin "${WORKFLOW_SERVICE_USER}"
   fi
 
+  usermod -a -G "${SHARED_GROUP}" "${PDF_SERVICE_USER}"
+  usermod -a -G "${SHARED_GROUP}" "${WORKFLOW_SERVICE_USER}"
+
   mkdir -p "${PDF_DATA_DIR}" "${PDF_CONFIG_DIR}" "${OMADA_DATA_DIR}" "${WORKFLOW_DATA_DIR}"
+  install -d -m 2770 -o root -g "${SHARED_GROUP}" "${SHARED_DATA_DIR}"
   chown -R "${PDF_SERVICE_USER}:${PDF_SERVICE_USER}" "${PDF_DATA_DIR}"
   chown -R "${OMADA_SERVICE_USER}:${OMADA_SERVICE_USER}" "${OMADA_DATA_DIR}"
   chown -R "${WORKFLOW_SERVICE_USER}:${WORKFLOW_SERVICE_USER}" "${WORKFLOW_DATA_DIR}"
@@ -184,6 +220,7 @@ write_pdf_env() {
   ZOHO_WORKDRIVE_REFRESH_TOKEN="${ZOHO_WORKDRIVE_REFRESH_TOKEN:-}" \
   ZOHO_WORKDRIVE_ACCESS_TOKEN="${ZOHO_WORKDRIVE_ACCESS_TOKEN:-}" \
   ZOHO_WORKDRIVE_PARENT_FOLDER_ID="${ZOHO_WORKDRIVE_PARENT_FOLDER_ID:-}" \
+  ZOHO_WORKDRIVE_CREDENTIALS_PATH="${ZOHO_OAUTH_CREDENTIALS_PATH}" \
   python3 - <<'PY'
 import os
 from pathlib import Path
@@ -204,6 +241,7 @@ for key in [
     "ZOHO_WORKDRIVE_REFRESH_TOKEN",
     "ZOHO_WORKDRIVE_ACCESS_TOKEN",
     "ZOHO_WORKDRIVE_PARENT_FOLDER_ID",
+    "ZOHO_WORKDRIVE_CREDENTIALS_PATH",
 ]:
     value = os.environ.get(key, "")
     if value:
@@ -218,6 +256,7 @@ ordered = [
     "ZOHO_WORKDRIVE_REFRESH_TOKEN",
     "ZOHO_WORKDRIVE_ACCESS_TOKEN",
     "ZOHO_WORKDRIVE_PARENT_FOLDER_ID",
+    "ZOHO_WORKDRIVE_CREDENTIALS_PATH",
 ]
 path.write_text("\n".join(f"{key}={existing.get(key, '')}" for key in ordered) + "\n", encoding="utf-8")
 PY
@@ -361,6 +400,12 @@ EOF
 }
 
 write_workflow_env() {
+  local zoho_accounts_base="${ZOHO_OAUTH_ACCOUNTS_BASE_URL:-$(resolve_zoho_accounts_base)}"
+  local zoho_redirect_uri="${ZOHO_OAUTH_REDIRECT_URI:-}"
+  if [[ -z "${zoho_redirect_uri}" && -n "${PUBLIC_API_HOST}" ]]; then
+    zoho_redirect_uri="https://${PUBLIC_API_HOST}/v1/integrations/zoho/oauth/callback"
+  fi
+
   WORKFLOW_ENV_FILE="${WORKFLOW_ENV_FILE}" \
   WORKFLOW_PORT="${WORKFLOW_PORT}" \
   WORKFLOW_DATA_DIR="${WORKFLOW_DATA_DIR}" \
@@ -371,6 +416,12 @@ write_workflow_env() {
   OMADA_SITE_CREATOR_CLOUD_PASSWORD="${OMADA_SITE_CREATOR_CLOUD_PASSWORD:-}" \
   OMADA_SITE_CREATOR_DEVICE_USERNAME="${OMADA_SITE_CREATOR_DEVICE_USERNAME:-}" \
   OMADA_SITE_CREATOR_DEVICE_PASSWORD="${OMADA_SITE_CREATOR_DEVICE_PASSWORD:-}" \
+  ZOHO_OAUTH_CLIENT_ID="${ZOHO_OAUTH_CLIENT_ID:-}" \
+  ZOHO_OAUTH_CLIENT_SECRET="${ZOHO_OAUTH_CLIENT_SECRET:-}" \
+  ZOHO_OAUTH_SCOPES="${ZOHO_OAUTH_SCOPES}" \
+  ZOHO_OAUTH_ACCOUNTS_BASE_URL="${zoho_accounts_base}" \
+  ZOHO_OAUTH_REDIRECT_URI="${zoho_redirect_uri}" \
+  ZOHO_OAUTH_CREDENTIALS_PATH="${ZOHO_OAUTH_CREDENTIALS_PATH}" \
   python3 - <<'PY'
 import os
 from pathlib import Path
@@ -406,6 +457,10 @@ defaults = {
     "OMADA_DEFAULT_REGION": "Canada",
     "OMADA_DEFAULT_TIMEZONE": "America/Toronto",
     "OMADA_DEFAULT_SCENARIO": "Office",
+    "ZOHO_OAUTH_ACCOUNTS_BASE_URL": os.environ["ZOHO_OAUTH_ACCOUNTS_BASE_URL"],
+    "ZOHO_OAUTH_REDIRECT_URI": os.environ["ZOHO_OAUTH_REDIRECT_URI"],
+    "ZOHO_OAUTH_SCOPES": os.environ["ZOHO_OAUTH_SCOPES"],
+    "ZOHO_OAUTH_CREDENTIALS_PATH": os.environ["ZOHO_OAUTH_CREDENTIALS_PATH"],
 }
 
 for key, value in defaults.items():
@@ -419,6 +474,8 @@ for key in [
     "OMADA_SITE_CREATOR_CLOUD_PASSWORD",
     "OMADA_SITE_CREATOR_DEVICE_USERNAME",
     "OMADA_SITE_CREATOR_DEVICE_PASSWORD",
+    "ZOHO_OAUTH_CLIENT_ID",
+    "ZOHO_OAUTH_CLIENT_SECRET",
 ]:
     value = os.environ.get(key, "").strip()
     if value:
@@ -446,6 +503,12 @@ ordered = [
     "OMADA_DEFAULT_REGION",
     "OMADA_DEFAULT_TIMEZONE",
     "OMADA_DEFAULT_SCENARIO",
+    "ZOHO_OAUTH_CLIENT_ID",
+    "ZOHO_OAUTH_CLIENT_SECRET",
+    "ZOHO_OAUTH_ACCOUNTS_BASE_URL",
+    "ZOHO_OAUTH_REDIRECT_URI",
+    "ZOHO_OAUTH_SCOPES",
+    "ZOHO_OAUTH_CREDENTIALS_PATH",
     "OMADA_SITE_CREATOR_CLOUD_EMAIL",
     "OMADA_SITE_CREATOR_CLOUD_PASSWORD",
     "OMADA_SITE_CREATOR_DEVICE_USERNAME",
@@ -586,6 +649,7 @@ print_summary() {
   echo "PDF env:         ${PDF_ENV_FILE}"
   echo "Omada env:       ${OMADA_ENV_FILE}"
   echo "Workflow env:    ${WORKFLOW_ENV_FILE}"
+  echo "Zoho OAuth file: ${ZOHO_OAUTH_CREDENTIALS_PATH}"
   echo "Services:"
   echo "  - ${PDF_SERVICE_NAME}"
   echo "  - ${OMADA_SERVICE_NAME}"
@@ -604,6 +668,8 @@ print_summary() {
     echo "Workflow webhook: https://${PUBLIC_API_HOST}/v1/site-and-password/webhooks/zoho"
     echo "Workflow jobs:    https://${PUBLIC_API_HOST}/v1/site-and-password/jobs"
     echo "Workflow health:  https://${PUBLIC_API_HOST}/v1/system/health"
+    echo "Zoho OAuth start: https://${PUBLIC_API_HOST}/v1/integrations/zoho/oauth/start"
+    echo "Zoho OAuth status: https://${PUBLIC_API_HOST}/v1/integrations/zoho/oauth/status"
     echo "PDF health:       https://${PUBLIC_API_HOST}/pdf/health"
     echo "Omada health:     https://${PUBLIC_API_HOST}/omada/api/health"
   fi

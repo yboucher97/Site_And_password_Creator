@@ -23,6 +23,9 @@ This app is the orchestration layer inside the monorepo. It sits in front of:
 - `GET /openapi.json`
 - `GET /v1/system/health`
 - `GET /v1/system/catalog`
+- `GET /v1/integrations/zoho/oauth/start`
+- `GET /v1/integrations/zoho/oauth/callback`
+- `GET /v1/integrations/zoho/oauth/status`
 - `GET /v1/site-and-password/health`
 - `GET /v1/site-and-password/jobs/{job_id}`
 - `POST /v1/site-and-password/jobs`
@@ -60,6 +63,27 @@ The unversioned paths remain as compatibility aliases.
 - generate PDFs and exports
 - upload to WorkDrive
 - then create the Omada site
+
+## Zoho OAuth
+
+Recommended Zoho client type:
+
+- `Server-based Application`
+
+Important env vars:
+
+- `ZOHO_OAUTH_CLIENT_ID`
+- `ZOHO_OAUTH_CLIENT_SECRET`
+- `ZOHO_OAUTH_ACCOUNTS_BASE_URL`
+- `ZOHO_OAUTH_REDIRECT_URI`
+- `ZOHO_OAUTH_SCOPES`
+- `ZOHO_OAUTH_CREDENTIALS_PATH`
+
+Typical callback path:
+
+- `/v1/integrations/zoho/oauth/callback`
+
+The workflow stores the approved Zoho refresh token in the shared credential file, and the PDF service reads that file automatically on future jobs.
 
 ## Example Payload
 

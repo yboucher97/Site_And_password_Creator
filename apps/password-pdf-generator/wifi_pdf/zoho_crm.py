@@ -7,6 +7,7 @@ import httpx
 
 from .config import CrmSettings, WorkDriveSettings
 from .exceptions import ConfigurationError, WorkDriveError
+from .zoho_credentials import load_zoho_credentials
 
 
 class ZohoCrmClient:
@@ -68,19 +69,21 @@ class ZohoCrmClient:
         if self._access_token:
             return self._access_token
 
-        direct_token = os.getenv("ZOHO_WORKDRIVE_ACCESS_TOKEN")
+        credentials = load_zoho_credentials()
+        direct_token = credentials.get("access_token") or os.getenv("ZOHO_WORKDRIVE_ACCESS_TOKEN")
         if direct_token:
-            self._access_token = direct_token
-            return direct_token
+            self._access_token = str(direct_token)
+            return str(direct_token)
 
-        refresh_token = os.getenv("ZOHO_WORKDRIVE_REFRESH_TOKEN")
-        client_id = os.getenv("ZOHO_WORKDRIVE_CLIENT_ID")
-        client_secret = os.getenv("ZOHO_WORKDRIVE_CLIENT_SECRET")
+        refresh_token = credentials.get("refresh_token") or os.getenv("ZOHO_WORKDRIVE_REFRESH_TOKEN")
+        client_id = credentials.get("client_id") or os.getenv("ZOHO_WORKDRIVE_CLIENT_ID")
+        client_secret = credentials.get("client_secret") or os.getenv("ZOHO_WORKDRIVE_CLIENT_SECRET")
         if not refresh_token or not client_id or not client_secret:
             raise ConfigurationError(
                 "Missing Zoho OAuth environment variables. Set ZOHO_WORKDRIVE_ACCESS_TOKEN "
                 "or provide ZOHO_WORKDRIVE_REFRESH_TOKEN, ZOHO_WORKDRIVE_CLIENT_ID, and "
-                "ZOHO_WORKDRIVE_CLIENT_SECRET."
+                "ZOHO_WORKDRIVE_CLIENT_SECRET. You can also point ZOHO_WORKDRIVE_CREDENTIALS_PATH "
+                "at a server-managed credential file."
             )
 
         response = client.post(

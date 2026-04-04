@@ -69,20 +69,49 @@ class NamingSettings:
 
 
 @dataclass(frozen=True)
+class ZohoOAuthSettings:
+    enabled: bool
+    client_id: str | None
+    client_secret: str | None
+    redirect_uri: str | None
+    accounts_base_url: str
+    scopes: tuple[str, ...]
+    credentials_path: Path
+    state_secret: str
+    state_ttl_seconds: int
+
+
+@dataclass(frozen=True)
 class AppSettings:
     api: ApiSettings
     output: OutputSettings
     pdf: DownstreamPdfSettings
     omada: DownstreamOmadaSettings
     naming: NamingSettings
+    zoho_oauth: ZohoOAuthSettings
 
 
 def load_settings() -> AppSettings:
     output_root = Path(os.getenv("SITE_WORKFLOW_OUTPUT_ROOT", PROJECT_ROOT / "output" / "site_workflow")).resolve()
+    api_key_env = os.getenv("SITE_WORKFLOW_API_KEY_ENV", "SITE_WORKFLOW_API_KEY")
+    api_key_value = os.getenv(api_key_env, "")
+    zoho_scopes_raw = os.getenv(
+        "ZOHO_OAUTH_SCOPES",
+        "WorkDrive.files.READ,WorkDrive.files.CREATE,WorkDrive.files.UPDATE",
+    )
+    zoho_scopes = tuple(scope.strip() for scope in zoho_scopes_raw.split(",") if scope.strip())
+    zoho_credentials_path = Path(
+        os.getenv("ZOHO_OAUTH_CREDENTIALS_PATH", output_root / "integrations" / "zoho-oauth.json")
+    ).resolve()
+    zoho_client_id = os.getenv("ZOHO_OAUTH_CLIENT_ID")
+    zoho_client_secret = os.getenv("ZOHO_OAUTH_CLIENT_SECRET")
+    zoho_redirect_uri = os.getenv("ZOHO_OAUTH_REDIRECT_URI")
+    zoho_accounts_base_url = os.getenv("ZOHO_OAUTH_ACCOUNTS_BASE_URL", "https://accounts.zoho.com").rstrip("/")
+    zoho_state_secret = os.getenv("ZOHO_OAUTH_STATE_SECRET") or api_key_value or "site-and-password-workflow"
 
     return AppSettings(
         api=ApiSettings(
-            api_key_env=os.getenv("SITE_WORKFLOW_API_KEY_ENV", "SITE_WORKFLOW_API_KEY"),
+            api_key_env=api_key_env,
             bind_host=os.getenv("SITE_WORKFLOW_HOST", "127.0.0.1"),
             bind_port=_env_int("SITE_WORKFLOW_PORT", 8100),
         ),
@@ -116,5 +145,16 @@ def load_settings() -> AppSettings:
             ssid_template=os.getenv("SITE_WORKFLOW_SSID_TEMPLATE", "{prefix}{identifier}_{suffix}"),
             ssid_suffix_length=_env_int("SITE_WORKFLOW_SSID_SUFFIX_LENGTH", 2),
             password_specials=os.getenv("SITE_WORKFLOW_PASSWORD_SPECIALS", "*!$@#"),
+        ),
+        zoho_oauth=ZohoOAuthSettings(
+            enabled=bool(zoho_client_id and zoho_client_secret and zoho_redirect_uri),
+            client_id=zoho_client_id,
+            client_secret=zoho_client_secret,
+            redirect_uri=zoho_redirect_uri,
+            accounts_base_url=zoho_accounts_base_url,
+            scopes=zoho_scopes,
+            credentials_path=zoho_credentials_path,
+            state_secret=zoho_state_secret,
+            state_ttl_seconds=_env_int("ZOHO_OAUTH_STATE_TTL_SECONDS", 900),
         ),
     )
