@@ -10,6 +10,7 @@ PUBLIC_API_HOST="${SITE_AND_PASSWORD_API_HOST:-}"
 SHARED_GROUP="${SITE_AND_PASSWORD_SHARED_GROUP:-siteandpassword}"
 SHARED_DATA_DIR="${SITE_AND_PASSWORD_SHARED_DATA_DIR:-/var/lib/opticable-api-platform/shared}"
 ZOHO_OAUTH_CREDENTIALS_PATH="${ZOHO_OAUTH_CREDENTIALS_PATH:-${SHARED_DATA_DIR}/zoho-oauth.json}"
+INSTALL_RUNTIME_SNAPSHOT="${INSTALL_RUNTIME_SNAPSHOT:-/root/opticable-api-platform.generated.env}"
 
 PDF_APP_DIR="${INSTALL_DIR}/apps/password-pdf-service"
 PDF_SERVICE_NAME="${PASSWORD_PDF_SERVICE_NAME:-password-pdf-generator}"
@@ -589,6 +590,30 @@ WantedBy=multi-user.target
 EOF
 }
 
+write_runtime_snapshot() {
+  local zoho_accounts_base="${ZOHO_OAUTH_ACCOUNTS_BASE_URL:-$(resolve_zoho_accounts_base)}"
+  local zoho_redirect_uri="${ZOHO_OAUTH_REDIRECT_URI:-}"
+  if [[ -z "${zoho_redirect_uri}" && -n "${PUBLIC_API_HOST}" ]]; then
+    zoho_redirect_uri="https://${PUBLIC_API_HOST}/v1/integrations/zoho/oauth/callback"
+  fi
+
+  cat >"${INSTALL_RUNTIME_SNAPSHOT}" <<EOF
+SITE_AND_PASSWORD_API_HOST=${PUBLIC_API_HOST}
+SITE_AND_PASSWORD_WORKFLOW_API_KEY=${SITE_AND_PASSWORD_WORKFLOW_API_KEY}
+PASSWORD_PDF_API_KEY=${PASSWORD_PDF_API_KEY}
+OMADA_SITE_CREATOR_WEBHOOK_TOKEN=${OMADA_SITE_CREATOR_WEBHOOK_TOKEN}
+ZOHO_OAUTH_CLIENT_ID=${ZOHO_OAUTH_CLIENT_ID}
+ZOHO_OAUTH_ACCOUNTS_BASE_URL=${zoho_accounts_base}
+ZOHO_OAUTH_REDIRECT_URI=${zoho_redirect_uri}
+ZOHO_OAUTH_SCOPES=${ZOHO_OAUTH_SCOPES}
+ZOHO_OAUTH_CREDENTIALS_PATH=${ZOHO_OAUTH_CREDENTIALS_PATH}
+WORKFLOW_ENV_FILE=${WORKFLOW_ENV_FILE}
+PDF_ENV_FILE=${PDF_ENV_FILE}
+OMADA_ENV_FILE=${OMADA_ENV_FILE}
+EOF
+  chmod 600 "${INSTALL_RUNTIME_SNAPSHOT}"
+}
+
 configure_caddy() {
   if [[ -z "${PUBLIC_API_HOST}" && -z "${PDF_HOST}" && -z "${OMADA_HOST}" && -z "${WORKFLOW_HOST}" ]]; then
     return
@@ -689,6 +714,7 @@ print_summary() {
   echo "Omada env:       ${OMADA_ENV_FILE}"
   echo "Workflow env:    ${WORKFLOW_ENV_FILE}"
   echo "Zoho OAuth file: ${ZOHO_OAUTH_CREDENTIALS_PATH}"
+  echo "Runtime snapshot:${INSTALL_RUNTIME_SNAPSHOT}"
   echo "Services:"
   echo "  - ${PDF_SERVICE_NAME}"
   echo "  - ${OMADA_SERVICE_NAME}"
@@ -736,6 +762,7 @@ main() {
   write_omada_service
   install_workflow_app
   write_workflow_service
+  write_runtime_snapshot
   configure_caddy
   configure_ufw
   start_services

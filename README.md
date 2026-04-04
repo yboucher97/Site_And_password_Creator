@@ -37,7 +37,8 @@ What it does:
   - `/etc/password-pdf-generator.env`
   - `/etc/password-pdf-generator/brand_settings.json`
   - `/etc/omada-site-creator.env`
-  - `/etc/site-and-password-workflow.env`
+- `/etc/site-and-password-workflow.env`
+- `/root/opticable-api-platform.generated.env`
 - optionally writes one master Caddy site if you provide `SITE_AND_PASSWORD_API_HOST`
 
 Runtime artifact names currently stay on the legacy service names for compatibility:
@@ -56,6 +57,7 @@ Important runtime paths:
 - PDF secrets: `/etc/password-pdf-generator.env`
 - Omada secrets: `/etc/omada-site-creator.env`
 - Workflow secrets: `/etc/site-and-password-workflow.env`
+- Generated runtime snapshot: `/root/opticable-api-platform.generated.env`
 
 Optional installer variables:
 
