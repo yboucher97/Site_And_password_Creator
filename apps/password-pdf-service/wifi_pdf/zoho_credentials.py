@@ -18,7 +18,7 @@ def _clean_env(name: str) -> str | None:
 def load_zoho_credentials() -> dict[str, str | None]:
     payload: dict[str, str | None] = {}
 
-    credentials_path = _clean_env("ZOHO_OAUTH_CREDENTIALS_PATH")
+    credentials_path = _clean_env("ZOHO_OAUTH_CREDENTIALS_PATH") or _clean_env("ZOHO_WORKDRIVE_CREDENTIALS_PATH")
     if credentials_path:
         path = Path(credentials_path)
         if path.exists():
