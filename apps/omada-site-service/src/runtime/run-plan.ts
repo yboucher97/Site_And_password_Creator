@@ -1,4 +1,4 @@
-import { mkdir, writeFile } from "node:fs/promises";
+import { chmod, mkdir, writeFile } from "node:fs/promises";
 import { basename, resolve } from "node:path";
 import { stringify as stringifyYaml } from "yaml";
 
@@ -244,6 +244,7 @@ async function writeLiveSiteArtifact(
   const fileName = `live-site-${slugify(site.name)}.yaml`;
   const outputPath = resolve(reporter.outputDir, fileName);
   await writeFile(outputPath, stringifyYaml(snapshot), "utf8");
+  await chmod(outputPath, 0o644).catch(() => undefined);
   reporter.addArtifact("live-site-yaml", fileName, outputPath);
   reporter.log("info", `Wrote live site snapshot "${fileName}".`);
 }
@@ -255,6 +256,7 @@ export async function runPlanFromFile(planPath: string, forceDryRun = false): Pr
   const dryRun = forceDryRun || plan.execution.dryRun;
   const reporter = new RunReporter(basename(planPath), dryRun);
   await mkdir(reporter.outputDir, { recursive: true });
+  await chmod(reporter.outputDir, 0o755).catch(() => undefined);
 
   reporter.log("info", `Loaded plan ${basename(planPath)}.`);
   reporter.log("info", `Plan summary: ${JSON.stringify(summarizePlan(plan))}`);
