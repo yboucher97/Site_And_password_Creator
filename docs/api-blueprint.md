@@ -64,6 +64,8 @@ Examples:
 - `GET /v1/omada/sites/{siteId}/lans`
 - `GET /v1/omada/sites/{siteId}/wlan-groups`
 - `GET /v1/omada/sites/{siteId}/wlan-groups/{groupId}/ssids`
+- `GET /v1/omada/sites/{siteId}/snapshot`
+- `POST /v1/omada/workdrive/jobs`
 - `POST /v1/omada/sites`
 - `POST /v1/omada/sites/{siteId}/lans`
 - `POST /v1/omada/sites/{siteId}/wlan-groups`
@@ -170,3 +172,18 @@ Internally, that workflow may call:
 - Omada site creation logic
 
 That is one public API call, not three public APIs that the caller has to coordinate manually.
+
+## Omada Artifact Strategy
+
+For scalable Omada automation, use explicit operation and source fields instead of one endpoint per case:
+
+- `operation: create | upsert | update | get`
+- `source_preference: yaml_then_txt | yaml_only | txt_only`
+- `workdrive_folder_id`
+
+Recommended behavior:
+
+- `POST /v1/omada/workdrive/jobs` for WorkDrive-driven site application
+- `GET /v1/omada/sites/{siteId}/snapshot` for live controller export
+
+Treat WorkDrive YAML/TXT as the source of truth for passwords. Treat live Omada discovery as the source of truth for what currently exists on the controller.

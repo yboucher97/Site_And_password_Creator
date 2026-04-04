@@ -1,0 +1,10 @@
+{
+  "workdrive_folder_id": "replace-with-workdrive-folder-id",
+  "operation": "upsert",
+  "source_preference": "yaml_then_txt",
+  "building_name": "123 Main Street",
+  "site_name": "123 Main Street",
+  "omada_region": "Canada",
+  "omada_timezone": "America/Toronto",
+  "omada_scenario": "Office"
+}

@@ -32,7 +32,9 @@ This app is the orchestration layer inside the monorepo. It sits in front of:
 - `GET /v1/omada/sites/{site_id}/lans`
 - `GET /v1/omada/sites/{site_id}/wlan-groups`
 - `GET /v1/omada/sites/{site_id}/wlan-groups/{wlan_id}/ssids`
+- `GET /v1/omada/sites/{site_id}/snapshot`
 - `POST /v1/omada/jobs`
+- `POST /v1/omada/workdrive/jobs`
 - `GET /v1/omada/jobs/{job_id}`
 - `POST /v1/workflows/site-and-password`
 - `GET /v1/workflows/site-and-password/jobs/{job_id}`
@@ -56,6 +58,33 @@ Use `POST /v1/omada/jobs` when you already have an Omada YAML or JSON plan and w
 - poll `GET /v1/omada/jobs/{job_id}` for completion
 
 This is the clean standalone path for site-template style jobs that should not go through password/PDF generation.
+
+## WorkDrive-Driven Omada Jobs
+
+Use `POST /v1/omada/workdrive/jobs` when the source of truth is a WorkDrive building folder.
+
+Current behavior:
+
+- read the requested WorkDrive folder
+- prefer `create.yaml`, `upsert.yaml`, or `omada-plan.yaml`
+- if no YAML exists, fall back to the TXT credential export
+- if TXT is used, build an Omada plan automatically and submit it
+
+Supported operation values today:
+
+- `create`
+- `upsert`
+
+Reserved for the next Omada engine increment:
+
+- `update`
+
+Live reads:
+
+- `GET /v1/omada/sites/{site_id}/snapshot`
+- returns JSON by default
+- `?format=yaml` returns a YAML snapshot
+- passwords are intentionally `null` in this live snapshot because the current discovery flow does not expose the PSK
 
 ## Credential Modes
 
@@ -135,6 +164,8 @@ The workflow stores the approved Zoho OAuth credentials in the shared credential
 ## Example Payload
 
 See [example_payload.json](./input/example_payload.json).
+
+For WorkDrive-driven Omada jobs, see [omada_workdrive_job.example.json](./input/omada_workdrive_job.example.json).
 
 ## Local Run
 

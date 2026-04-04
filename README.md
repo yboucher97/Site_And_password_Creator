@@ -13,6 +13,7 @@ Repository docs:
 - [Repository Structure](./docs/repository-structure.md)
 - [Architecture](./docs/architecture.md)
 - [API Blueprint](./docs/api-blueprint.md)
+- [Omada Operation Strategy](./docs/omada-operation-strategy.md)
 - [Deploy Notes](./deploy/README.md)
 
 ## Install On One Linux VM
@@ -126,7 +127,9 @@ With `SITE_AND_PASSWORD_API_HOST=api01.opticable.ca`, Caddy exposes:
 - `https://api01.opticable.ca/v1/omada/sites/{siteId}/lans`
 - `https://api01.opticable.ca/v1/omada/sites/{siteId}/wlan-groups`
 - `https://api01.opticable.ca/v1/omada/sites/{siteId}/wlan-groups/{wlanId}/ssids`
+- `https://api01.opticable.ca/v1/omada/sites/{siteId}/snapshot`
 - `https://api01.opticable.ca/v1/omada/jobs`
+- `https://api01.opticable.ca/v1/omada/workdrive/jobs`
 - `https://api01.opticable.ca/v1/omada/jobs/{job_id}`
 - `https://api01.opticable.ca/v1/workflows/site-and-password`
 - `https://api01.opticable.ca/v1/workflows/site-and-password/jobs/{job_id}`
@@ -164,6 +167,15 @@ The Omada domain also supports direct plan submission:
 - `GET /v1/omada/jobs/{job_id}`
 
 Use that path when you already have an Omada YAML/JSON plan and want the master API host to submit it directly.
+
+The Omada domain also supports:
+
+- `POST /v1/omada/workdrive/jobs`
+- YAML-first, TXT-fallback WorkDrive execution
+
+- `GET /v1/omada/sites/{siteId}/snapshot`
+- `GET /v1/omada/sites/{siteId}/snapshot?format=yaml`
+- live controller export for review and future update work
 
 ## Zoho OAuth
 
@@ -251,6 +263,12 @@ Current Omada execution is create/ensure-only:
 - existing SSIDs are left unchanged
 
 So site modification and in-place SSID/VLAN updates are the next feature, not part of the current implementation.
+
+For that reason:
+
+- `create` and `upsert` are supported today
+- `update` is documented as the target contract, but not executed yet
+- live snapshots should be used to review the controller state before future update work
 
 That is intentional for now, because keeping an SSID inside the same existing WLAN group is the safe way to preserve AP assignment. The next build step should add explicit update modes instead of silent overwrite behavior.
 

@@ -3,26 +3,29 @@ from __future__ import annotations
 import os
 import threading
 from contextlib import asynccontextmanager
-from typing import Any
+from typing import Any, Literal
 
-from fastapi import Body, FastAPI, Header, HTTPException, Query
-from fastapi.responses import HTMLResponse, RedirectResponse
-from pydantic import BaseModel
+import yaml
+from fastapi import Body, FastAPI, Header, HTTPException, Query, Request
+from fastapi.responses import HTMLResponse, PlainTextResponse, RedirectResponse
+from pydantic import BaseModel, Field
 
 from .clients import OmadaClient
 from .config import load_settings
 from .jobs import JobStore
 from .logging_utils import configure_logging
 from .models import parse_payload
+from .omada_operations import build_live_snapshot, resolve_workdrive_execution_source
 from .pipeline import SiteWorkflowPipeline
 from .utils import ensure_directory, sanitize_filename, utc_timestamp
+from .workdrive import WorkflowWorkDriveClient, WorkflowWorkDriveError
 from .zoho_oauth import ZohoOAuthManager
 
 
 settings = load_settings()
 logger = configure_logging(ensure_directory(settings.output.root_dir / "logs"))
 job_store = JobStore(settings.output.jobs_dir, logger)
-API_VERSION = "1.2.0"
+API_VERSION = "1.3.0"
 PRIMARY_WEBHOOK_PATH = "/v1/site-and-password/webhooks/zoho"
 PRIMARY_JOB_CREATE_PATH = "/v1/site-and-password/jobs"
 PRIMARY_JOB_STATUS_PATH = "/v1/site-and-password/jobs/{job_id}"
@@ -138,6 +141,55 @@ class OmadaJobAcceptedResponse(BaseModel):
     job: dict[str, Any]
 
 
+class OmadaWorkDriveJobRequest(BaseModel):
+    workdrive_folder_id: str
+    operation: Literal["create", "upsert", "update"] = "create"
+    source_preference: Literal["yaml_then_txt", "yaml_only", "txt_only"] = "yaml_then_txt"
+    building_name: str | None = None
+    site_name: str | None = None
+    city: str | None = None
+    template_name: str = "Opticable_Template_01"
+    omada_region: str | None = None
+    omada_timezone: str | None = None
+    omada_scenario: str | None = None
+
+
+class OmadaWorkDriveJobAcceptedResponse(BaseModel):
+    status: str
+    operation: str
+    source_type: str
+    source_file_name: str
+    source_file_id: str
+    source_folder_id: str
+    building_name: str
+    site_name: str
+    job_id: str | None = None
+    job_status_url: str | None = None
+    job: dict[str, Any]
+
+
+class OmadaSiteSnapshotSsid(BaseModel):
+    id: str
+    name: str
+    password: str | None = Field(default=None, description="Not exposed by current live Omada discovery.")
+
+
+class OmadaSiteSnapshotWlanGroup(BaseModel):
+    id: str
+    name: str
+    ssids: list[OmadaSiteSnapshotSsid]
+
+
+class OmadaSiteSnapshotResponse(BaseModel):
+    version: int
+    operation: str
+    source: str
+    passwordsAvailable: bool
+    site: OmadaSiteItem
+    lans: list[OmadaLanItem]
+    wlanGroups: list[OmadaSiteSnapshotWlanGroup]
+
+
 class ZohoOAuthStatusResponse(BaseModel):
     provider: str
     configured: bool
@@ -250,6 +302,32 @@ WORKFLOW_PAYLOAD_EXAMPLES = {
             "template_name": "Opticable_Template_01",
             "ssids": ["APT_401_AA", "APT_402_BB"],
             "passwords": ["1234ab5678!@", "5678cd1234#$"],
+        },
+    },
+}
+
+OMADA_WORKDRIVE_JOB_EXAMPLES = {
+    "yaml_first_upsert": {
+        "summary": "Resolve WorkDrive folder using upsert.yaml/create.yaml first, TXT second",
+        "value": {
+            "workdrive_folder_id": "replace-with-workdrive-folder-id",
+            "operation": "upsert",
+            "source_preference": "yaml_then_txt",
+            "site_name": "123 Main Street",
+            "building_name": "123 Main Street",
+            "omada_region": "Canada",
+            "omada_timezone": "America/Toronto",
+            "omada_scenario": "Office",
+        },
+    },
+    "txt_fallback_create": {
+        "summary": "No YAML in WorkDrive, create site from TXT export",
+        "value": {
+            "workdrive_folder_id": "replace-with-workdrive-folder-id",
+            "operation": "create",
+            "source_preference": "yaml_then_txt",
+            "site_name": "456 Example Avenue",
+            "building_name": "456 Example Avenue",
         },
     },
 }
@@ -422,6 +500,55 @@ async def omada_list_ssids(
     return OmadaClient(settings.omada).list_ssids(site_id, wlan_id)
 
 
+@app.get("/v1/omada/sites/{site_id}/snapshot", tags=["omada"])
+async def omada_get_site_snapshot(
+    site_id: str,
+    format: Literal["json", "yaml"] = Query(default="json"),
+    x_api_key: str | None = Header(default=None, alias="X-API-Key"),
+):
+    _validate_api_key(x_api_key)
+
+    client = OmadaClient(settings.omada)
+    site_response = client.get_site(site_id)
+    lans_response = client.list_lans(site_id)
+    wlan_groups_response = client.list_wlan_groups(site_id)
+
+    wlan_groups: list[dict[str, Any]] = []
+    for group in wlan_groups_response.get("items", []):
+        group_id = str(group.get("id", "")).strip()
+        if not group_id:
+            continue
+        ssid_response = client.list_ssids(site_id, group_id)
+        wlan_groups.append(
+            {
+                "id": group_id,
+                "name": str(group.get("name", "")),
+                "ssids": [
+                    {
+                        "id": str(ssid.get("id", "")),
+                        "name": str(ssid.get("name", "")),
+                        "password": None,
+                    }
+                    for ssid in ssid_response.get("items", [])
+                ],
+            }
+        )
+
+    snapshot = build_live_snapshot(
+        site=site_response.get("site", {}),
+        lans=lans_response.get("items", []),
+        wlan_groups=wlan_groups,
+    )
+
+    if format == "yaml":
+        return PlainTextResponse(
+            yaml.safe_dump(snapshot, sort_keys=False, allow_unicode=False),
+            media_type="application/yaml",
+        )
+
+    return OmadaSiteSnapshotResponse.model_validate(snapshot)
+
+
 @app.get("/v1/omada/jobs/{job_id}", tags=["omada"])
 async def omada_get_job(
     job_id: str,
@@ -452,6 +579,63 @@ async def omada_create_job(
     job_id = str(job.get("id")) if job.get("id") is not None else None
     return OmadaJobAcceptedResponse(
         status="accepted",
+        job_id=job_id,
+        job_status_url=f"/v1/omada/jobs/{job_id}" if job_id else None,
+        job=job,
+    )
+
+
+@app.post("/v1/omada/workdrive/jobs", response_model=OmadaWorkDriveJobAcceptedResponse, tags=["omada"])
+async def omada_create_job_from_workdrive(
+    payload: OmadaWorkDriveJobRequest = Body(..., openapi_examples=OMADA_WORKDRIVE_JOB_EXAMPLES),
+    x_api_key: str | None = Header(default=None, alias="X-API-Key"),
+) -> OmadaWorkDriveJobAcceptedResponse:
+    _validate_api_key(x_api_key)
+
+    if payload.operation == "update":
+        raise HTTPException(
+            status_code=501,
+            detail="Operation 'update' is planned but not implemented yet. Current Omada execution is create/ensure-only.",
+        )
+
+    workdrive_client = WorkflowWorkDriveClient(settings.zoho_oauth, logger)
+    try:
+        resolved = resolve_workdrive_execution_source(
+            workdrive_client,
+            parent_folder_id=payload.workdrive_folder_id,
+            operation=payload.operation,
+            source_preference=payload.source_preference,
+            settings=settings,
+            building_name=payload.building_name,
+            site_name=payload.site_name,
+            city=payload.city,
+            template_name=payload.template_name,
+            omada_region=payload.omada_region,
+            omada_timezone=payload.omada_timezone,
+            omada_scenario=payload.omada_scenario,
+        )
+    except (WorkflowWorkDriveError, ValueError) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    response = OmadaClient(settings.omada).create_job_from_raw(
+        resolved.plan_text.encode("utf-8"),
+        "application/x-yaml",
+        resolved.plan_file_name,
+    )
+    job = response.get("job")
+    if not isinstance(job, dict):
+        raise HTTPException(status_code=502, detail="Omada service returned an unexpected job payload.")
+
+    job_id = str(job.get("id")) if job.get("id") is not None else None
+    return OmadaWorkDriveJobAcceptedResponse(
+        status="accepted",
+        operation=payload.operation,
+        source_type=resolved.source_type,
+        source_file_name=resolved.file_name,
+        source_file_id=resolved.file_id,
+        source_folder_id=resolved.folder_id,
+        building_name=resolved.building_name,
+        site_name=resolved.site_name,
         job_id=job_id,
         job_status_url=f"/v1/omada/jobs/{job_id}" if job_id else None,
         job=job,

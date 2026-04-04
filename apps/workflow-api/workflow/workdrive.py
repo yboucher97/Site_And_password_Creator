@@ -59,6 +59,49 @@ class WorkflowWorkDriveClient:
             "response": payload,
         }
 
+    def list_read_folder_entries(self, parent_folder_id: str) -> dict[str, Any]:
+        timeout = httpx.Timeout(60.0, connect=20.0)
+        with httpx.Client(timeout=timeout) as client:
+            headers = self._get_auth_headers(client)
+            folder_id = self._resolve_read_folder_id(client, headers, parent_folder_id)
+            response = client.get(
+                f"{self._api_base_url()}/files/{folder_id}/files",
+                headers=headers,
+                params={"page[limit]": 200},
+            )
+
+        if response.status_code >= 400:
+            raise WorkflowWorkDriveError(
+                f"WorkDrive folder listing failed for '{folder_id}' with status {response.status_code}: {response.text}"
+            )
+
+        payload = response.json()
+        items = payload.get("data")
+        if not isinstance(items, list):
+            raise WorkflowWorkDriveError(f"Unexpected WorkDrive listing response for folder '{folder_id}': {payload}")
+
+        return {
+            "folder_id": folder_id,
+            "items": items,
+        }
+
+    def download_text_file(self, file_id: str) -> str:
+        timeout = httpx.Timeout(60.0, connect=20.0)
+        with httpx.Client(timeout=timeout) as client:
+            headers = self._get_auth_headers(client)
+            response = client.get(
+                f"{self._api_base_url()}/download",
+                headers=headers,
+                params={"resource_id": file_id},
+            )
+
+        if response.status_code >= 400:
+            raise WorkflowWorkDriveError(
+                f"WorkDrive download failed for file '{file_id}' with status {response.status_code}: {response.text}"
+            )
+
+        return response.text
+
     def _resolve_upload_folder_id(self, client: httpx.Client, headers: dict[str, str], parent_folder_id: str) -> str:
         if not self.target_folder_name:
             return parent_folder_id
@@ -73,6 +116,13 @@ class WorkflowWorkDriveClient:
             parent_folder_id,
         )
         return self._create_child_folder_id(client, headers, parent_folder_id)
+
+    def _resolve_read_folder_id(self, client: httpx.Client, headers: dict[str, str], parent_folder_id: str) -> str:
+        if not self.target_folder_name:
+            return parent_folder_id
+
+        child_id = self._find_child_folder_id(client, headers, parent_folder_id)
+        return child_id or parent_folder_id
 
     def _find_child_folder_id(self, client: httpx.Client, headers: dict[str, str], parent_folder_id: str) -> str | None:
         response = client.get(

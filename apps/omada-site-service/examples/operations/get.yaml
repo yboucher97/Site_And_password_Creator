@@ -1,0 +1,31 @@
+# Snapshot/export template for live Omada reads.
+# This is not an executable plan today. It is the expected output shape
+# for GET-style site snapshots, and passwords are intentionally null because
+# they are not exposed by the current live discovery flow.
+version: 1
+operation: get
+source: live_omada
+passwordsAvailable: false
+
+site:
+  id: site-id
+  name: Building-Live-Example
+
+lans:
+  - id: lan-10
+    name: "10"
+    vlan: 10
+  - id: lan-20
+    name: "20"
+    vlan: 20
+
+wlanGroups:
+  - id: wlan-group-1
+    name: Existing-WLAN-Group
+    ssids:
+      - id: ssid-1
+        name: APT_101_AA
+        password: null
+      - id: ssid-2
+        name: APT_102_BB
+        password: null

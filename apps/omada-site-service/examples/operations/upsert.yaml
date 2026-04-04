@@ -1,0 +1,47 @@
+# Executable upsert template.
+# In the current engine, upsert behaves like ensure/create-only:
+# existing items stay unchanged, missing items are created.
+version: 1
+
+controller:
+  organizationName: Opti-plex
+  baseUrl: https://use1-omada-cloud.tplinkcloud.com/
+  browserChannel: chromium
+  headless: true
+
+execution:
+  stopOnError: true
+  screenshots: true
+  dryRun: false
+
+sites:
+  - name: Building-Upsert-Example
+    region: Canada
+    timezone: America/Toronto
+    scenario: Office
+    lans:
+      - name: "10"
+        vlanId: 10
+      - name: "20"
+        vlanId: 20
+      - name: "30"
+        vlanId: 30
+    wlanGroups:
+      - name: APT_101_AA
+        ssids:
+          - name: APT_101_AA
+            security: wpa2_psk
+            password: change-me-101
+            vlanId: 10
+      - name: APT_102_BB
+        ssids:
+          - name: APT_102_BB
+            security: wpa2_psk
+            password: change-me-102
+            vlanId: 20
+      - name: APT_103_CC
+        ssids:
+          - name: APT_103_CC
+            security: wpa2_psk
+            password: change-me-103
+            vlanId: 30

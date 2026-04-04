@@ -1,0 +1,31 @@
+# Contract template for future in-place update support.
+# This file documents the target shape the platform should fill,
+# but current execution does not yet mutate existing Omada objects in place.
+version: 1
+
+controller:
+  organizationName: Opti-plex
+  baseUrl: https://use1-omada-cloud.tplinkcloud.com/
+  browserChannel: chromium
+  headless: true
+
+execution:
+  stopOnError: true
+  screenshots: true
+  dryRun: true
+
+sites:
+  - name: Building-Update-Example
+    region: Canada
+    timezone: America/Toronto
+    scenario: Office
+    lans:
+      - name: "20"
+        vlanId: 20
+    wlanGroups:
+      - name: Existing-WLAN-Group
+        ssids:
+          - name: APT_102_BB
+            security: wpa2_psk
+            password: replace-me
+            vlanId: 20
