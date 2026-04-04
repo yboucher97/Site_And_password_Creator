@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import mimetypes
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -20,6 +21,8 @@ class WorkflowWorkDriveClient:
         self.logger = logger
         self.target_folder_name = target_folder_name.strip()
         self._access_token: str | None = None
+        self._prepared_upload_folders: dict[str, str] = {}
+        self.archive_folder_name = "Archive"
 
     def upload_file(self, path: Path, parent_folder_id: str) -> dict[str, Any]:
         with path.open("rb") as handle:
@@ -68,6 +71,26 @@ class WorkflowWorkDriveClient:
             "response": payload,
         }
 
+    def prepare_upload_folder(self, parent_folder_id: str) -> str:
+        timeout = httpx.Timeout(60.0, connect=20.0)
+        with httpx.Client(timeout=timeout) as client:
+            headers = self._get_auth_headers(client)
+            target_folder_id = self._resolve_upload_folder_id(client, headers, parent_folder_id)
+            if self.target_folder_name and self._folder_has_contents(client, headers, target_folder_id):
+                archive_root_id = self._find_or_create_child_folder_id(client, headers, parent_folder_id, self.archive_folder_name)
+                archive_folder_name = self._next_archive_folder_name(client, headers, archive_root_id)
+                self._move_folder(client, headers, target_folder_id, archive_root_id, archive_folder_name)
+                target_folder_id = self._create_child_folder_id(client, headers, parent_folder_id, self.target_folder_name)
+                self.logger.info(
+                    "Archived existing WorkDrive folder '%s' into '%s/%s'. New upload folder id: %s",
+                    self.target_folder_name,
+                    self.archive_folder_name,
+                    archive_folder_name,
+                    target_folder_id,
+                )
+            self._prepared_upload_folders[parent_folder_id] = target_folder_id
+            return target_folder_id
+
     def list_read_folder_entries(self, parent_folder_id: str) -> dict[str, Any]:
         timeout = httpx.Timeout(60.0, connect=20.0)
         with httpx.Client(timeout=timeout) as client:
@@ -112,11 +135,15 @@ class WorkflowWorkDriveClient:
         return response.text
 
     def _resolve_upload_folder_id(self, client: httpx.Client, headers: dict[str, str], parent_folder_id: str) -> str:
+        cached_folder_id = self._prepared_upload_folders.get(parent_folder_id)
+        if cached_folder_id:
+            return cached_folder_id
         if not self.target_folder_name:
             return parent_folder_id
 
-        child_id = self._find_child_folder_id(client, headers, parent_folder_id)
+        child_id = self._find_child_folder_id(client, headers, parent_folder_id, self.target_folder_name)
         if child_id:
+            self._prepared_upload_folders[parent_folder_id] = child_id
             return child_id
 
         self.logger.info(
@@ -124,16 +151,24 @@ class WorkflowWorkDriveClient:
             self.target_folder_name,
             parent_folder_id,
         )
-        return self._create_child_folder_id(client, headers, parent_folder_id)
+        child_id = self._create_child_folder_id(client, headers, parent_folder_id)
+        self._prepared_upload_folders[parent_folder_id] = child_id
+        return child_id
 
     def _resolve_read_folder_id(self, client: httpx.Client, headers: dict[str, str], parent_folder_id: str) -> str:
         if not self.target_folder_name:
             return parent_folder_id
 
-        child_id = self._find_child_folder_id(client, headers, parent_folder_id)
+        child_id = self._find_child_folder_id(client, headers, parent_folder_id, self.target_folder_name)
         return child_id or parent_folder_id
 
-    def _find_child_folder_id(self, client: httpx.Client, headers: dict[str, str], parent_folder_id: str) -> str | None:
+    def _find_child_folder_id(
+        self,
+        client: httpx.Client,
+        headers: dict[str, str],
+        parent_folder_id: str,
+        target_folder_name: str,
+    ) -> str | None:
         response = client.get(
             f"{self._api_base_url()}/files/{parent_folder_id}/files",
             headers=headers,
@@ -149,11 +184,28 @@ class WorkflowWorkDriveClient:
             attributes = item.get("attributes") if isinstance(item, dict) else None
             if not isinstance(attributes, dict):
                 continue
-            if str(attributes.get("name", "")).strip() == self.target_folder_name:
+            if str(attributes.get("name", "")).strip() == target_folder_name:
                 folder_id = item.get("id")
                 if folder_id:
                     return str(folder_id)
         return None
+
+    def _folder_has_contents(self, client: httpx.Client, headers: dict[str, str], folder_id: str) -> bool:
+        response = client.get(
+            f"{self._api_base_url()}/files/{folder_id}/files",
+            headers=headers,
+            params={"page[limit]": 1},
+        )
+        if response.status_code >= 400:
+            raise WorkflowWorkDriveError(
+                f"WorkDrive folder listing failed for '{folder_id}' with status {response.status_code}: {response.text}"
+            )
+
+        payload = response.json()
+        data = payload.get("data")
+        if not isinstance(data, list):
+            raise WorkflowWorkDriveError(f"Unexpected WorkDrive listing response for folder '{folder_id}': {payload}")
+        return len(data) > 0
 
     def _create_child_folder_id(self, client: httpx.Client, headers: dict[str, str], parent_folder_id: str) -> str:
         response = client.post(
@@ -182,6 +234,42 @@ class WorkflowWorkDriveClient:
                 f"WorkDrive child folder creation returned an unexpected payload: {payload}"
             )
         return str(data["id"])
+
+    def _next_archive_folder_name(self, client: httpx.Client, headers: dict[str, str], archive_root_id: str) -> str:
+        base_name = datetime.now().astimezone().strftime("%Y-%m-%d_%H-%M-%S")
+        candidate = base_name
+        suffix = 1
+        while self._find_child_folder_id(client, headers, archive_root_id, candidate):
+            suffix += 1
+            candidate = f"{base_name}-{suffix:02d}"
+        return candidate
+
+    def _move_folder(
+        self,
+        client: httpx.Client,
+        headers: dict[str, str],
+        folder_id: str,
+        new_parent_id: str,
+        new_name: str,
+    ) -> None:
+        response = client.patch(
+            f"{self._api_base_url()}/files/{folder_id}",
+            headers={**headers, "Content-Type": "application/vnd.api+json"},
+            json={
+                "data": {
+                    "type": "files",
+                    "attributes": {
+                        "name": new_name,
+                        "parent_id": new_parent_id,
+                    },
+                }
+            },
+        )
+        if response.status_code >= 400:
+            raise WorkflowWorkDriveError(
+                f"WorkDrive folder move failed for '{folder_id}' -> '{new_parent_id}/{new_name}' "
+                f"with status {response.status_code}: {response.text}"
+            )
 
     def _get_auth_headers(self, client: httpx.Client) -> dict[str, str]:
         access_token = self._get_access_token(client)

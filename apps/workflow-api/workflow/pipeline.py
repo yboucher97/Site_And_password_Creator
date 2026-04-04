@@ -38,6 +38,10 @@ class SiteWorkflowPipeline:
         omada_plan_written = write_omada_plan(job_dir / "omada-plan.yaml", omada_plan)
         omada_plan_path = str(omada_plan_written)
 
+        if batch.workdrive_folder_id and batch.workflow_mode == "site_only":
+            self.logger.info("Workflow job %s: archiving existing WorkDrive batch folder before site-only uploads", job_id)
+            self._get_workdrive_client().prepare_upload_folder(batch.workdrive_folder_id)
+
         pdf_payload_path: str | None = None
         pdf_job_id: str | None = None
         pdf_job: dict[str, Any] | None = None
