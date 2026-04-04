@@ -11,10 +11,12 @@ This app is the orchestration layer inside the monorepo. It sits in front of:
 2. normalize the payload
 3. generate SSIDs and passwords if `credential_mode=generated`
 4. always build `omada-plan.yaml`
-5. if the workflow includes PDFs, call the PDF generator
-6. if the workflow includes PDFs, wait for PDF generation and WorkDrive upload to finish
-7. if `workdrive_folder_id` is present, upload `omada-plan.yaml` to WorkDrive
-8. if the workflow includes Omada, call Omada site creation
+5. always build the operation-specific plan file like `create.yaml`, `upsert.yaml`, or `update.yaml`
+6. if the workflow includes PDFs, call the PDF generator
+7. if the workflow includes PDFs, wait for PDF generation and WorkDrive upload to finish
+8. if `workdrive_folder_id` is present, upload `omada-plan.yaml` and the operation-specific plan to WorkDrive
+9. if the workflow includes Omada, call Omada site creation
+10. after successful Omada execution, refresh `live-site.yaml`
 
 ## Endpoints
 
@@ -68,7 +70,7 @@ Current behavior:
 - read the requested WorkDrive folder
 - prefer `create.yaml`, `upsert.yaml`, or `omada-plan.yaml`
 - if no YAML exists, fall back to the TXT credential export
-- if TXT is used, build an Omada plan automatically and submit it
+- if TXT is used, build an Omada plan automatically, save the matching operation file, and submit it
 
 Supported operation values today:
 
@@ -103,6 +105,7 @@ Live reads:
 - generate PDFs and exports
 - upload to WorkDrive
 - also generate and upload `omada-plan.yaml`
+- also generate and upload the matching operation file like `create.yaml`, `upsert.yaml`, or `update.yaml`
 - skip Omada
 
 `pdf_and_site`
@@ -110,14 +113,18 @@ Live reads:
 - generate PDFs and exports
 - upload to WorkDrive
 - also generate and upload `omada-plan.yaml`
+- also generate and upload the matching operation file like `create.yaml`, `upsert.yaml`, or `update.yaml`
 - then create the Omada site
+- refresh and upload `live-site.yaml` after success
 
 `site_only`
 
 - skip PDFs and password documents
 - still generate `omada-plan.yaml`
 - upload `omada-plan.yaml` to WorkDrive when `workdrive_folder_id` is provided
+- upload the matching operation file like `create.yaml`, `upsert.yaml`, or `update.yaml`
 - create the Omada site directly
+- refresh and upload `live-site.yaml` after success
 
 ## Omada Operation Flag
 
@@ -205,6 +212,8 @@ uvicorn workflow.api:app --host 127.0.0.1 --port 8100
 - Default suffix casing: uppercase
 - Default `workflow_mode`: `pdf_and_site`
 - `omada-plan.yaml` is generated for every workflow job
+- the matching operation file like `create.yaml`, `upsert.yaml`, or `update.yaml` is also generated for every workflow job
+- `live-site.yaml` is refreshed after every successful Omada run
 - If `credential_mode` is omitted, the workflow still infers generated vs predefined for backward compatibility
 - The FastAPI Swagger docs are available at `/docs`
 - The OpenAPI document is available at `/openapi.json`

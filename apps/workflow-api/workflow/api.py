@@ -17,6 +17,7 @@ from .jobs import JobStore
 from .logging_utils import configure_logging
 from .models import parse_payload
 from .omada_operations import build_live_snapshot, resolve_workdrive_execution_source
+from .omada_plan import operation_plan_filename
 from .pipeline import SiteWorkflowPipeline
 from .utils import ensure_directory, sanitize_filename, utc_timestamp
 from .workdrive import WorkflowWorkDriveClient, WorkflowWorkDriveError
@@ -496,6 +497,49 @@ def _watch_omada_workdrive_job(job_id: str, workdrive_folder_id: str) -> None:
         logger.exception("Omada WorkDrive job %s live-site upload watcher failed", job_id)
 
 
+def _upload_omada_plan_artifacts(
+    workdrive_client: WorkflowWorkDriveClient,
+    *,
+    workdrive_folder_id: str,
+    operation: str,
+    plan_text: str,
+    plan_file_name: str,
+) -> list[dict[str, Any]]:
+    uploads: list[dict[str, Any]] = []
+    operation_file_name = operation_plan_filename(operation)
+    encoded_plan = plan_text.encode("utf-8")
+
+    uploads.append(
+        workdrive_client.upload_bytes(
+            encoded_plan,
+            "omada-plan.yaml",
+            workdrive_folder_id,
+            content_type="application/x-yaml",
+        )
+    )
+
+    if operation_file_name != "omada-plan.yaml":
+        uploads.append(
+            workdrive_client.upload_bytes(
+                encoded_plan,
+                operation_file_name,
+                workdrive_folder_id,
+                content_type="application/x-yaml",
+            )
+        )
+    elif plan_file_name != "omada-plan.yaml":
+        uploads.append(
+            workdrive_client.upload_bytes(
+                encoded_plan,
+                plan_file_name,
+                workdrive_folder_id,
+                content_type="application/x-yaml",
+            )
+        )
+
+    return uploads
+
+
 def _health_payload() -> HealthResponse:
     return HealthResponse(
         status="ok",
@@ -693,6 +737,17 @@ async def omada_create_job_from_workdrive(
         )
     except (WorkflowWorkDriveError, ValueError) as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    try:
+        _upload_omada_plan_artifacts(
+            workdrive_client,
+            workdrive_folder_id=payload.workdrive_folder_id,
+            operation=payload.operation,
+            plan_text=resolved.plan_text,
+            plan_file_name=resolved.plan_file_name,
+        )
+    except WorkflowWorkDriveError as exc:
+        raise HTTPException(status_code=502, detail=f"Failed to upload Omada plan artifacts to WorkDrive: {exc}") from exc
 
     response = OmadaClient(settings.omada).create_job_from_raw(
         resolved.plan_text.encode("utf-8"),

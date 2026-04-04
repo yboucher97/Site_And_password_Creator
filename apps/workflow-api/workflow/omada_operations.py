@@ -8,7 +8,7 @@ import yaml
 
 from .config import AppSettings
 from .models import OmadaOperation, WorkflowBatchRequest, WorkflowRecord
-from .omada_plan import build_omada_plan
+from .omada_plan import build_omada_plan, dump_omada_plan, operation_plan_filename
 from .workdrive import WorkflowWorkDriveClient, WorkflowWorkDriveError
 
 SourcePreference = Literal["yaml_then_txt", "yaml_only", "txt_only"]
@@ -108,14 +108,14 @@ def resolve_workdrive_execution_source(
     )
     plan_dict = build_omada_plan(batch, settings)
     _set_plan_mutation_mode(plan_dict, operation)
-    plan_text = yaml.safe_dump(plan_dict, sort_keys=False, allow_unicode=False)
+    plan_text = dump_omada_plan(plan_dict)
 
     return ResolvedOmadaExecutionSource(
         source_type="txt",
         file_id=artifact.file_id,
         file_name=artifact.file_name,
         folder_id=artifact.folder_id,
-        plan_file_name=f"{operation}.yaml",
+        plan_file_name=operation_plan_filename(operation),
         plan_text=plan_text,
         plan_dict=plan_dict,
         building_name=resolved_building_name,

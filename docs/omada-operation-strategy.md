@@ -35,12 +35,26 @@ For WorkDrive-driven site application:
 4. if no YAML exists, fall back to the TXT credential export
 5. if neither exists, fail clearly
 
-Preferred YAML names:
+Preferred current files:
 
 - `create.yaml`
 - `upsert.yaml`
 - `update.yaml`
 - `omada-plan.yaml`
+- `live-site.yaml`
+
+Recommended meaning:
+
+- `create.yaml`
+  Current desired baseline for first-time site creation
+- `upsert.yaml`
+  Current desired state for safe create-missing or update-existing runs
+- `update.yaml`
+  Current desired state for strict in-place changes like password rotation
+- `omada-plan.yaml`
+  Neutral execution artifact for the last run
+- `live-site.yaml`
+  Current actual controller state after the last successful Omada run
 
 TXT fallback:
 
@@ -93,7 +107,8 @@ Current conservative limits:
 
 - export the live controller state into a stable YAML or JSON shape
 - use this as a review artifact or as a starting point for later update work
-- current live snapshot intentionally marks SSID passwords as unavailable
+- the public snapshot endpoint does not expose PSKs
+- successful create, upsert, and update runs instead refresh `live-site.yaml` with the applied passwords merged in
 
 ## Zoho Webhook Strategy
 
@@ -143,5 +158,6 @@ That route remains the right choice for multi-step automation.
 - one workflow entrypoint for multi-step business flows
 - explicit operation type instead of hidden inference
 - YAML files for human review and re-use
+- stable current files for desired state and actual live state
 - TXT fallback keeps old jobs usable even when YAML is missing
 - live snapshots give you a stable read contract before broader update coverage lands

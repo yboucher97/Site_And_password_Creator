@@ -8,6 +8,17 @@ from .config import AppSettings
 from .models import WorkflowBatchRequest
 
 
+def dump_omada_plan(plan: dict) -> str:
+    return yaml.safe_dump(plan, sort_keys=False, allow_unicode=False)
+
+
+def operation_plan_filename(operation: str) -> str:
+    normalized = str(operation).strip().lower()
+    if normalized in {"ensure", "create", "upsert", "update"}:
+        return f"{normalized}.yaml"
+    return "omada-plan.yaml"
+
+
 def build_omada_plan(batch: WorkflowBatchRequest, settings: AppSettings) -> dict:
     controller: dict[str, object] = {
         "organizationName": settings.omada.organization_name,
@@ -75,5 +86,5 @@ def build_omada_plan(batch: WorkflowBatchRequest, settings: AppSettings) -> dict
 
 
 def write_omada_plan(path: Path, plan: dict) -> Path:
-    path.write_text(yaml.safe_dump(plan, sort_keys=False, allow_unicode=False), encoding="utf-8")
+    path.write_text(dump_omada_plan(plan), encoding="utf-8")
     return path

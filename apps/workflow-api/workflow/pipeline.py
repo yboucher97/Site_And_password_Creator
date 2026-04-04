@@ -7,7 +7,7 @@ from typing import Any
 from .clients import OmadaClient, PdfGeneratorClient
 from .config import AppSettings
 from .models import WorkflowBatchRequest
-from .omada_plan import build_omada_plan, write_omada_plan
+from .omada_plan import build_omada_plan, operation_plan_filename, write_omada_plan
 from .utils import ensure_directory
 from .workdrive import WorkflowWorkDriveClient
 
@@ -36,7 +36,9 @@ class SiteWorkflowPipeline:
         normalized_payload_path = self._write_json(job_dir / "normalized-workflow.json", batch.model_dump(mode="json"))
         omada_plan = build_omada_plan(batch, self.settings)
         omada_plan_written = write_omada_plan(job_dir / "omada-plan.yaml", omada_plan)
+        operation_plan_written = write_omada_plan(job_dir / operation_plan_filename(batch.omada_operation), omada_plan)
         omada_plan_path = str(omada_plan_written)
+        operation_plan_path = str(operation_plan_written)
 
         if batch.workdrive_folder_id and batch.workflow_mode == "site_only":
             self.logger.info("Workflow job %s: archiving existing WorkDrive batch folder before site-only uploads", job_id)
@@ -58,9 +60,13 @@ class SiteWorkflowPipeline:
                 raise RuntimeError(f"Password_PDF_Generator job {pdf_job_id} failed: {pdf_job.get('error')}")
 
         omada_plan_upload: dict[str, Any] | None = None
+        operation_plan_upload: dict[str, Any] | None = None
         if batch.workdrive_folder_id:
             self.logger.info("Workflow job %s: uploading Omada plan to WorkDrive", job_id)
             omada_plan_upload = self._get_workdrive_client().upload_file(omada_plan_written, batch.workdrive_folder_id)
+            if operation_plan_written.name != omada_plan_written.name:
+                self.logger.info("Workflow job %s: uploading %s to WorkDrive", job_id, operation_plan_written.name)
+                operation_plan_upload = self._get_workdrive_client().upload_file(operation_plan_written, batch.workdrive_folder_id)
 
         omada_job_id: str | None = None
         omada_job: dict[str, Any] | None = None
@@ -88,8 +94,10 @@ class SiteWorkflowPipeline:
             "normalized_payload_path": str(normalized_payload_path),
             "pdf_payload_path": pdf_payload_path,
             "omada_plan_path": omada_plan_path,
+            "operation_plan_path": operation_plan_path,
             "pdf_job": pdf_job,
             "omada_plan_upload": omada_plan_upload,
+            "operation_plan_upload": operation_plan_upload,
             "omada_job": omada_job,
             "omada_live_site_uploads": omada_live_site_uploads or None,
         }

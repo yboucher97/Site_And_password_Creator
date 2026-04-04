@@ -28,14 +28,6 @@ interface LiveSiteSnapshot {
   }>;
 }
 
-function slugify(value: string): string {
-  return value
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 80) || "site";
-}
-
 function normalizeKey(value: string): string {
   return value.trim().toLowerCase();
 }
@@ -241,7 +233,7 @@ async function writeLiveSiteArtifact(
   site: OmadaSite,
 ): Promise<void> {
   const snapshot = enrichSnapshotWithPlanPasswords(await portal.buildSiteSnapshot(site.name), site);
-  const fileName = `live-site-${slugify(site.name)}.yaml`;
+  const fileName = "live-site.yaml";
   const outputPath = resolve(reporter.outputDir, fileName);
   const yamlContent = stringifyYaml(snapshot);
   await writeFile(outputPath, yamlContent, "utf8");
