@@ -17,6 +17,7 @@ HOST="${PASSWORD_PDF_HOST:-}"
 API_KEY="${PASSWORD_PDF_API_KEY:-${WIFI_PDF_API_KEY:-}}"
 ENABLE_WORKDRIVE="${PASSWORD_PDF_ENABLE_WORKDRIVE:-}"
 ZOHO_REGION="${PASSWORD_PDF_ZOHO_REGION:-com}"
+ZOHO_OAUTH_CREDENTIALS_PATH="${ZOHO_OAUTH_CREDENTIALS_PATH:-${CONFIG_DIR}/zoho-oauth.json}"
 UFW_MODE="${PASSWORD_PDF_CONFIGURE_UFW:-auto}"
 INSTALL_OWNER="${PASSWORD_PDF_INSTALL_OWNER:-${SUDO_USER:-$(id -un)}}"
 INSTALL_OWNER_HOME="${PASSWORD_PDF_OWNER_HOME:-}"
@@ -233,10 +234,7 @@ write_env_file() {
 
   ENV_FILE="$ENV_FILE" \
   WIFI_PDF_API_KEY="$API_KEY" \
-  ZOHO_WORKDRIVE_CLIENT_ID="${ZOHO_WORKDRIVE_CLIENT_ID:-}" \
-  ZOHO_WORKDRIVE_CLIENT_SECRET="${ZOHO_WORKDRIVE_CLIENT_SECRET:-}" \
-  ZOHO_WORKDRIVE_REFRESH_TOKEN="${ZOHO_WORKDRIVE_REFRESH_TOKEN:-}" \
-  ZOHO_WORKDRIVE_ACCESS_TOKEN="${ZOHO_WORKDRIVE_ACCESS_TOKEN:-}" \
+  ZOHO_OAUTH_CREDENTIALS_PATH="${ZOHO_OAUTH_CREDENTIALS_PATH:-}" \
   ZOHO_WORKDRIVE_PARENT_FOLDER_ID="${ZOHO_WORKDRIVE_PARENT_FOLDER_ID:-}" \
   python3 - <<'PY'
 import os
@@ -254,10 +252,7 @@ if path.exists():
 
 ordered_keys = [
     "WIFI_PDF_API_KEY",
-    "ZOHO_WORKDRIVE_CLIENT_ID",
-    "ZOHO_WORKDRIVE_CLIENT_SECRET",
-    "ZOHO_WORKDRIVE_REFRESH_TOKEN",
-    "ZOHO_WORKDRIVE_ACCESS_TOKEN",
+    "ZOHO_OAUTH_CREDENTIALS_PATH",
     "ZOHO_WORKDRIVE_PARENT_FOLDER_ID",
 ]
 
@@ -324,28 +319,15 @@ write_paths_file() {
 }
 
 report_secret_follow_up() {
-  local missing=()
-
-  if [[ -z "${API_KEY:-}" ]]; then
-    missing+=("WIFI_PDF_API_KEY")
-  fi
-
   if [[ "$ENABLE_WORKDRIVE" == "true" ]]; then
-    [[ -z "${ZOHO_WORKDRIVE_CLIENT_ID:-}" ]] && missing+=("ZOHO_WORKDRIVE_CLIENT_ID")
-    [[ -z "${ZOHO_WORKDRIVE_CLIENT_SECRET:-}" ]] && missing+=("ZOHO_WORKDRIVE_CLIENT_SECRET")
-    [[ -z "${ZOHO_WORKDRIVE_REFRESH_TOKEN:-}" ]] && missing+=("ZOHO_WORKDRIVE_REFRESH_TOKEN")
+    log "WorkDrive upload expects a Zoho OAuth credential file."
+    log "Credential file path: ${ZOHO_OAUTH_CREDENTIALS_PATH}"
+    log "Restart the service after placing or refreshing that file:"
+    log "  sudo systemctl restart ${SERVICE_NAME}"
+    return
   fi
 
-  if [[ "${#missing[@]}" -gt 0 ]]; then
-    log "Open ${ENV_FILE} and fill in these values:"
-    for key in "${missing[@]}"; do
-      log "  - ${key}"
-    done
-    log "Then restart the service:"
-    log "  sudo systemctl restart ${SERVICE_NAME}"
-  else
-    log "Secrets file is populated: ${ENV_FILE}"
-  fi
+  log "Secrets file is populated: ${ENV_FILE}"
 }
 
 write_service_file() {
@@ -433,9 +415,7 @@ main() {
   fi
 
   if [[ "$ENABLE_WORKDRIVE" == "true" ]]; then
-    prompt ZOHO_WORKDRIVE_CLIENT_ID "Zoho WorkDrive client id"
-    prompt ZOHO_WORKDRIVE_CLIENT_SECRET "Zoho WorkDrive client secret" true
-    prompt ZOHO_WORKDRIVE_REFRESH_TOKEN "Zoho WorkDrive refresh token" true
+    prompt ZOHO_OAUTH_CREDENTIALS_PATH "Zoho OAuth credentials file path" false "$ZOHO_OAUTH_CREDENTIALS_PATH"
     prompt ZOHO_WORKDRIVE_PARENT_FOLDER_ID "Default WorkDrive folder id (optional)"
   fi
 

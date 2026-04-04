@@ -476,7 +476,7 @@ async def zoho_oauth_callback(
   <head><title>Zoho Connected</title></head>
   <body style="font-family: sans-serif; padding: 2rem; line-height: 1.5;">
     <h1>Zoho Connected</h1>
-    <p>The server stored the Zoho refresh token successfully.</p>
+    <p>The server stored the Zoho OAuth credentials successfully.</p>
     <p>Credentials path: <code>{status_payload.credentials_path}</code></p>
     <p>Next check: <code>{ZOHO_OAUTH_STATUS_PATH}</code></p>
   </body>

@@ -18,7 +18,7 @@ def _clean_env(name: str) -> str | None:
 def load_zoho_credentials() -> dict[str, str | None]:
     payload: dict[str, str | None] = {}
 
-    credentials_path = _clean_env("ZOHO_WORKDRIVE_CREDENTIALS_PATH")
+    credentials_path = _clean_env("ZOHO_OAUTH_CREDENTIALS_PATH")
     if credentials_path:
         path = Path(credentials_path)
         if path.exists():
@@ -29,15 +29,5 @@ def load_zoho_credentials() -> dict[str, str | None]:
                 value = raw_payload.get(key)
                 if value is not None:
                     payload[key] = str(value).strip()
-
-    env_overrides = {
-        "client_id": _clean_env("ZOHO_WORKDRIVE_CLIENT_ID"),
-        "client_secret": _clean_env("ZOHO_WORKDRIVE_CLIENT_SECRET"),
-        "refresh_token": _clean_env("ZOHO_WORKDRIVE_REFRESH_TOKEN"),
-        "access_token": _clean_env("ZOHO_WORKDRIVE_ACCESS_TOKEN"),
-    }
-    for key, value in env_overrides.items():
-        if value:
-            payload[key] = value
 
     return payload

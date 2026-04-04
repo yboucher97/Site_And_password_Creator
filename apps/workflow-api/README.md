@@ -90,7 +90,7 @@ Typical callback path:
 
 - `/v1/integrations/zoho/oauth/callback`
 
-The workflow stores the approved Zoho refresh token in the shared credential file, and the PDF service reads that file automatically on future jobs.
+The workflow stores the approved Zoho OAuth credentials in the shared credential file, and the PDF service reads that file automatically on future jobs.
 
 ## Example Payload
 

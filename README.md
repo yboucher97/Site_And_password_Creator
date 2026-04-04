@@ -75,9 +75,6 @@ Optional installer variables:
 - `ZOHO_OAUTH_CREDENTIALS_PATH`
 - `AUTO_SWAP_ENABLED`
 - `AUTO_SWAP_SIZE_GB`
-- `ZOHO_WORKDRIVE_CLIENT_ID`
-- `ZOHO_WORKDRIVE_CLIENT_SECRET`
-- `ZOHO_WORKDRIVE_REFRESH_TOKEN`
 - `ZOHO_WORKDRIVE_PARENT_FOLDER_ID`
 - `OMADA_SITE_CREATOR_CLOUD_EMAIL`
 - `OMADA_SITE_CREATOR_CLOUD_PASSWORD`
@@ -186,7 +183,7 @@ Typical setup:
 2. install the VM
 3. open `https://api01.opticable.ca/v1/integrations/zoho/oauth/start?api_key=YOUR_WORKFLOW_API_KEY`
 4. sign in to Zoho and approve access
-5. the platform stores the refresh token in the shared server credential file
+5. the platform stores the Zoho OAuth credentials in the shared server credential file
 
 Useful endpoints:
 

@@ -217,10 +217,7 @@ Environment variables:
 
 ```text
 WIFI_PDF_API_KEY=replace-with-long-random-secret
-ZOHO_WORKDRIVE_CLIENT_ID=...
-ZOHO_WORKDRIVE_CLIENT_SECRET=...
-ZOHO_WORKDRIVE_REFRESH_TOKEN=...
-ZOHO_WORKDRIVE_ACCESS_TOKEN=optional-short-lived-token
+ZOHO_OAUTH_CREDENTIALS_PATH=/var/lib/opticable-api-platform/shared/zoho-oauth.json
 ZOHO_WORKDRIVE_PARENT_FOLDER_ID=optional-default-folder-id
 ```
 

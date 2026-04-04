@@ -142,9 +142,7 @@ Use:
 
 ```text
 WIFI_PDF_API_KEY=replace-with-long-random-secret
-ZOHO_WORKDRIVE_CLIENT_ID=your-client-id
-ZOHO_WORKDRIVE_CLIENT_SECRET=your-client-secret
-ZOHO_WORKDRIVE_REFRESH_TOKEN=your-refresh-token
+ZOHO_OAUTH_CREDENTIALS_PATH=/etc/wifi-pdf/zoho-oauth.json
 # Optional fallback if the webhook does not send workdrive_folder_id
 # ZOHO_WORKDRIVE_PARENT_FOLDER_ID=default-folder-id
 ```
