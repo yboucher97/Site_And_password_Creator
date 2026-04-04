@@ -1,4 +1,4 @@
-# Site And Password Creator
+# Opticable API Platform
 
 This repository is the monorepo for the Opticable API platform. It keeps one `main` branch and organizes the platform by service folders, not by branches or endpoints.
 
@@ -20,12 +20,12 @@ Use the top-level installer to deploy the full stack from this monorepo:
 
 ```bash
 sudo SITE_AND_PASSWORD_API_HOST=api01.opticable.ca \
-bash <(curl -fsSL https://raw.githubusercontent.com/yboucher97/Site_And_password_Creator/main/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/yboucher97/opticable-api-platform/main/install.sh)
 ```
 
 What it does:
 
-- clones or updates this repo into `/opt/site-and-password-creator`
+- clones or updates this repo into `/opt/opticable-api-platform`
 - installs Python, Node.js, Caddy, and Playwright Chromium
 - creates and enables:
   - `password-pdf-generator.service`
@@ -46,7 +46,7 @@ Runtime artifact names currently stay on the legacy service names for compatibil
 
 Important runtime paths:
 
-- combined code: `/opt/site-and-password-creator`
+- combined code: `/opt/opticable-api-platform`
 - PDF data: `/var/lib/password-pdf-generator`
 - Omada data: `/var/lib/omada-site-creator`
 - Workflow data: `/var/lib/site-and-password-workflow`

@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-APP_NAME="site-and-password-creator"
-REPO_URL="${SITE_AND_PASSWORD_CREATOR_REPO_URL:-https://github.com/yboucher97/Site_And_password_Creator.git}"
+APP_NAME="opticable-api-platform"
+REPO_URL="${SITE_AND_PASSWORD_CREATOR_REPO_URL:-https://github.com/yboucher97/opticable-api-platform.git}"
 REPO_REF="${SITE_AND_PASSWORD_CREATOR_REPO_REF:-main}"
-INSTALL_DIR="${SITE_AND_PASSWORD_CREATOR_INSTALL_DIR:-/opt/site-and-password-creator}"
+INSTALL_DIR="${SITE_AND_PASSWORD_CREATOR_INSTALL_DIR:-/opt/opticable-api-platform}"
 
 PUBLIC_API_HOST="${SITE_AND_PASSWORD_API_HOST:-}"
 SHARED_GROUP="${SITE_AND_PASSWORD_SHARED_GROUP:-siteandpassword}"
-SHARED_DATA_DIR="${SITE_AND_PASSWORD_SHARED_DATA_DIR:-/var/lib/site-and-password-creator/shared}"
+SHARED_DATA_DIR="${SITE_AND_PASSWORD_SHARED_DATA_DIR:-/var/lib/opticable-api-platform/shared}"
 ZOHO_OAUTH_CREDENTIALS_PATH="${ZOHO_OAUTH_CREDENTIALS_PATH:-${SHARED_DATA_DIR}/zoho-oauth.json}"
 
 PDF_APP_DIR="${INSTALL_DIR}/apps/password-pdf-service"
@@ -83,7 +83,7 @@ resolve_zoho_accounts_base() {
 
 require_root() {
   if [[ "${EUID}" -ne 0 ]]; then
-    fail "Run this installer as root. Example: sudo bash <(curl -fsSL https://raw.githubusercontent.com/yboucher97/Site_And_password_Creator/main/install.sh)"
+    fail "Run this installer as root. Example: sudo bash <(curl -fsSL https://raw.githubusercontent.com/yboucher97/opticable-api-platform/main/install.sh)"
   fi
 }
 

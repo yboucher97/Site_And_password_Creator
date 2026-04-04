@@ -185,7 +185,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="Site And Password Creator API Platform",
+    title="Opticable API Platform",
     version=API_VERSION,
     description=(
         "Master API platform for Opticable workflow automation. "
@@ -271,7 +271,7 @@ def _health_payload() -> HealthResponse:
 @app.get("/api", response_model=PlatformIndexResponse, tags=["platform"])
 async def platform_index() -> PlatformIndexResponse:
     return PlatformIndexResponse(
-        name="Site And Password Creator API Platform",
+        name="Opticable API Platform",
         version=API_VERSION,
         docs_url=PLATFORM_DOCS_PATH,
         openapi_url=PLATFORM_OPENAPI_PATH,
