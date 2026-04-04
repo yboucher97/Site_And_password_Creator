@@ -143,6 +143,7 @@ def draw_opticable_template_01(
         ssid_min_size=12,
         password_start_size=18,
         password_min_size=12,
+        center_values=True,
     )
 
     qr_note_y = info_y - 56
@@ -189,10 +190,10 @@ def draw_opticable_template_01(
 
     support_y = keep_y - 126
     draw_card(canvas, margin, support_y, panel_width, support_height, theme["support_background"], radius, theme["support_border"])
-    support_content_x = margin + 24
-    support_qr_x = margin + panel_width - support_qr_card - 24
+    support_content_x = margin + 32
+    support_qr_x = margin + panel_width - support_qr_card - 32
     support_qr_y = support_y + 11
-    support_content_width = support_qr_x - support_content_x - 10
+    support_content_width = support_qr_x - support_content_x
     _draw_section_title(canvas, support_content_x, support_y + support_height - 18, support_content_width, SUPPORT_TITLE, fonts)
     draw_bullet_list(
         canvas,

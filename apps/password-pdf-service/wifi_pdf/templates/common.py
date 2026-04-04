@@ -206,6 +206,7 @@ def draw_label_value_panel(
     ssid_min_size: int = 12,
     password_start_size: int = 19,
     password_min_size: int = 11,
+    center_values: bool = False,
 ) -> None:
     row_height = height / 2
     panel_path = canvas.beginPath()
@@ -233,11 +234,24 @@ def draw_label_value_panel(
 
     ssid_font = fit_font_size(ssid, fonts["bold"], width - label_width - 24, ssid_start_size, ssid_min_size)
     pwd_font = fit_font_size(password, fonts["bold"], width - label_width - 24, password_start_size, password_min_size)
+    value_area_x = x + label_width
+    value_area_width = width - label_width
     canvas.setFillColor(theme["value_text"])
     canvas.setFont(fonts["bold"], ssid_font)
-    canvas.drawString(x + label_width + 12, y + row_height + 10, ssid)
+    ssid_x = x + label_width + 12
+    ssid_y = y + row_height + 10
+    pwd_x = x + label_width + 12
+    pwd_y = y + 10
+    if center_values:
+        ssid_width = pdfmetrics.stringWidth(ssid, fonts["bold"], ssid_font)
+        pwd_width = pdfmetrics.stringWidth(password, fonts["bold"], pwd_font)
+        ssid_x = value_area_x + max((value_area_width - ssid_width) / 2, 12)
+        pwd_x = value_area_x + max((value_area_width - pwd_width) / 2, 12)
+        ssid_y = y + row_height + ((row_height - ssid_font) / 2) - 1
+        pwd_y = y + ((row_height - pwd_font) / 2) - 1
+    canvas.drawString(ssid_x, ssid_y, ssid)
     canvas.setFont(fonts["bold"], pwd_font)
-    canvas.drawString(x + label_width + 12, y + 10, password)
+    canvas.drawString(pwd_x, pwd_y, password)
 
 
 def draw_sheet_layout(
