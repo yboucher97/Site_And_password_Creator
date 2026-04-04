@@ -10,7 +10,7 @@ Group=omada-site-creator
 WorkingDirectory=/opt/omada-site-creator
 EnvironmentFile=/etc/omada-site-creator.env
 Environment=HOME=/var/lib/omada-site-creator
-ExecStart=/usr/bin/npm run serve:dist
+ExecStart=/usr/bin/node /opt/omada-site-creator/dist/server.js
 Restart=always
 RestartSec=5
 TimeoutStopSec=20

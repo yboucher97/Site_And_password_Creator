@@ -9,6 +9,7 @@ fi
 SERVICE_USER="${OMADA_SITE_CREATOR_USER:-omada-site-creator}"
 INSTALL_DIR="${OMADA_SITE_CREATOR_INSTALL_DIR:-/opt/omada-site-creator}"
 DATA_DIR="${OMADA_SITE_CREATOR_DATA_DIR:-/var/lib/omada-site-creator}"
+PLAYWRIGHT_BROWSERS_PATH="${OMADA_SITE_CREATOR_PLAYWRIGHT_BROWSERS_PATH:-${DATA_DIR}/ms-playwright}"
 ENV_FILE="${OMADA_SITE_CREATOR_ENV_FILE:-/etc/omada-site-creator.env}"
 SERVICE_FILE="/etc/systemd/system/omada-site-creator.service"
 CADDY_FILE="/etc/caddy/conf.d/omada-site-creator.caddy"
@@ -41,10 +42,15 @@ git -C "${INSTALL_DIR}" checkout "${REPO_REF}"
 git -C "${INSTALL_DIR}" pull --ff-only origin "${REPO_REF}"
 
 pushd "${INSTALL_DIR}" >/dev/null
-npm ci
+npm ci --omit=optional
 npm run build
-npx playwright install chromium --with-deps
+npm prune --omit=dev --omit=optional
+PLAYWRIGHT_BROWSERS_PATH="${PLAYWRIGHT_BROWSERS_PATH}" npx playwright install chromium --with-deps
+npm cache clean --force >/dev/null 2>&1 || true
 popd >/dev/null
+
+mkdir -p "${PLAYWRIGHT_BROWSERS_PATH}"
+chown -R "${SERVICE_USER}:${SERVICE_USER}" "${PLAYWRIGHT_BROWSERS_PATH}"
 
 if [[ ! -f "${ENV_FILE}" ]]; then
   install -m 600 "${INSTALL_DIR}/deploy/linux/omada-site-creator.env.example" "${ENV_FILE}"
@@ -52,6 +58,10 @@ fi
 
 if ! grep -q "^OMADA_SITE_CREATOR_DATA_DIR=" "${ENV_FILE}"; then
   printf "\nOMADA_SITE_CREATOR_DATA_DIR=%s/data\n" "${DATA_DIR}" >> "${ENV_FILE}"
+fi
+
+if ! grep -q "^PLAYWRIGHT_BROWSERS_PATH=" "${ENV_FILE}"; then
+  printf "PLAYWRIGHT_BROWSERS_PATH=%s\n" "${PLAYWRIGHT_BROWSERS_PATH}" >> "${ENV_FILE}"
 fi
 
 install -m 644 "${INSTALL_DIR}/deploy/linux/omada-site-creator.service" "${SERVICE_FILE}"

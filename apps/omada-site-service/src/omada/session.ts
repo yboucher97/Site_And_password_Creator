@@ -49,12 +49,19 @@ function buildOptions(
 ): Parameters<typeof chromium.launchPersistentContext>[1] {
   const args = forceHeaded ? ["--start-maximized"] : [];
   if (process.platform === "linux") {
-    args.push("--no-sandbox", "--disable-dev-shm-usage");
+    args.push(
+      "--no-sandbox",
+      "--disable-dev-shm-usage",
+      "--disable-gpu",
+      "--disable-background-networking",
+      "--disable-renderer-backgrounding",
+      "--disable-software-rasterizer",
+    );
   }
 
   const options: Parameters<typeof chromium.launchPersistentContext>[1] = {
     headless: forceHeaded ? false : controller.headless,
-    viewport: forceHeaded ? null : { width: 1600, height: 1000 },
+    viewport: forceHeaded ? null : { width: 1366, height: 900 },
     args,
   };
 

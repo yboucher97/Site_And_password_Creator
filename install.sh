@@ -29,6 +29,7 @@ OMADA_DATA_DIR="${OMADA_SITE_CREATOR_DATA_DIR:-/var/lib/omada-site-creator}"
 OMADA_ENV_FILE="${OMADA_SITE_CREATOR_ENV_FILE:-/etc/omada-site-creator.env}"
 OMADA_PORT="${OMADA_SITE_CREATOR_PORT:-3210}"
 OMADA_HOST="${OMADA_SITE_CREATOR_PUBLIC_HOST:-}"
+OMADA_PLAYWRIGHT_BROWSERS_PATH="${OMADA_SITE_CREATOR_PLAYWRIGHT_BROWSERS_PATH:-${OMADA_DATA_DIR}/ms-playwright}"
 
 WORKFLOW_APP_DIR="${INSTALL_DIR}/apps/workflow-api"
 WORKFLOW_SERVICE_NAME="${SITE_AND_PASSWORD_WORKFLOW_SERVICE_NAME:-site-and-password-workflow}"
@@ -299,8 +300,8 @@ PY
 
 install_pdf_app() {
   python3 -m venv "${PDF_APP_DIR}/.venv"
-  "${PDF_APP_DIR}/.venv/bin/pip" install --upgrade pip
-  "${PDF_APP_DIR}/.venv/bin/pip" install -r "${PDF_APP_DIR}/requirements.txt"
+  "${PDF_APP_DIR}/.venv/bin/pip" install --no-cache-dir --upgrade pip
+  "${PDF_APP_DIR}/.venv/bin/pip" install --no-cache-dir -r "${PDF_APP_DIR}/requirements.txt"
   configure_pdf_json
   write_pdf_env
 }
@@ -331,6 +332,7 @@ write_omada_env() {
   OMADA_ENV_FILE="${OMADA_ENV_FILE}" \
   OMADA_PORT="${OMADA_PORT}" \
   OMADA_DATA_DIR="${OMADA_DATA_DIR}" \
+  OMADA_PLAYWRIGHT_BROWSERS_PATH="${OMADA_PLAYWRIGHT_BROWSERS_PATH}" \
   OMADA_SITE_CREATOR_WEBHOOK_TOKEN="${OMADA_SITE_CREATOR_WEBHOOK_TOKEN}" \
   OMADA_SITE_CREATOR_CLOUD_EMAIL="${OMADA_SITE_CREATOR_CLOUD_EMAIL:-}" \
   OMADA_SITE_CREATOR_CLOUD_PASSWORD="${OMADA_SITE_CREATOR_CLOUD_PASSWORD:-}" \
@@ -354,6 +356,7 @@ defaults = {
     "OMADA_SITE_CREATOR_HOST": "127.0.0.1",
     "OMADA_SITE_CREATOR_PORT": os.environ["OMADA_PORT"],
     "OMADA_SITE_CREATOR_DATA_DIR": f"{os.environ['OMADA_DATA_DIR']}/data",
+    "PLAYWRIGHT_BROWSERS_PATH": os.environ["OMADA_PLAYWRIGHT_BROWSERS_PATH"],
     "OMADA_SITE_CREATOR_WEBHOOK_TOKEN": os.environ["OMADA_SITE_CREATOR_WEBHOOK_TOKEN"],
     "OMADA_SITE_CREATOR_HEADLESS": "true",
     "OMADA_SITE_CREATOR_BROWSER_CHANNEL": "chromium",
@@ -378,6 +381,7 @@ ordered = [
     "OMADA_SITE_CREATOR_HOST",
     "OMADA_SITE_CREATOR_PORT",
     "OMADA_SITE_CREATOR_DATA_DIR",
+    "PLAYWRIGHT_BROWSERS_PATH",
     "OMADA_SITE_CREATOR_WEBHOOK_TOKEN",
     "OMADA_SITE_CREATOR_HEADLESS",
     "OMADA_SITE_CREATOR_BROWSER_CHANNEL",
@@ -400,11 +404,14 @@ PY
 
 install_omada_app() {
   pushd "${OMADA_APP_DIR}" >/dev/null
-  npm ci
+  npm ci --omit=optional
   npm run build
-  npm prune --omit=dev
-  npx playwright install chromium --with-deps
+  npm prune --omit=dev --omit=optional
+  PLAYWRIGHT_BROWSERS_PATH="${OMADA_PLAYWRIGHT_BROWSERS_PATH}" npx playwright install chromium --with-deps
+  npm cache clean --force >/dev/null 2>&1 || true
   popd >/dev/null
+  mkdir -p "${OMADA_PLAYWRIGHT_BROWSERS_PATH}"
+  chown -R "${OMADA_SERVICE_USER}:${OMADA_SERVICE_USER}" "${OMADA_PLAYWRIGHT_BROWSERS_PATH}"
   write_omada_env
 }
 
@@ -422,7 +429,7 @@ Group=${OMADA_SERVICE_USER}
 WorkingDirectory=${OMADA_APP_DIR}
 EnvironmentFile=${OMADA_ENV_FILE}
 Environment=HOME=${OMADA_DATA_DIR}
-ExecStart=/usr/bin/npm run serve:dist
+ExecStart=/usr/bin/node ${OMADA_APP_DIR}/dist/server.js
 Restart=always
 RestartSec=5
 TimeoutStopSec=20
@@ -555,8 +562,8 @@ PY
 
 install_workflow_app() {
   python3 -m venv "${WORKFLOW_APP_DIR}/.venv"
-  "${WORKFLOW_APP_DIR}/.venv/bin/pip" install --upgrade pip
-  "${WORKFLOW_APP_DIR}/.venv/bin/pip" install -r "${WORKFLOW_APP_DIR}/requirements.txt"
+  "${WORKFLOW_APP_DIR}/.venv/bin/pip" install --no-cache-dir --upgrade pip
+  "${WORKFLOW_APP_DIR}/.venv/bin/pip" install --no-cache-dir -r "${WORKFLOW_APP_DIR}/requirements.txt"
   write_workflow_env
 }
 
