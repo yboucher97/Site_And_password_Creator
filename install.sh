@@ -96,7 +96,12 @@ ensure_packages() {
   apt-get update
   apt-get install -y git curl ca-certificates openssl python3 python3-venv python3-pip caddy ufw build-essential unzip
 
-  if ! command -v node >/dev/null 2>&1; then
+  local node_major=""
+  if command -v node >/dev/null 2>&1; then
+    node_major="$(node -p 'process.versions.node.split(\".\")[0]' 2>/dev/null || true)"
+  fi
+
+  if [[ -z "${node_major}" || "${node_major}" -lt 22 ]]; then
     curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
     apt-get install -y nodejs
   fi
