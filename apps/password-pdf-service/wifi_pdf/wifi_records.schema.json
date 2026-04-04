@@ -95,6 +95,35 @@
       "title": "Building Name",
       "type": "string"
     },
+    "city": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "City"
+    },
+    "crm_record_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Crm Record Id"
+    },
+    "passwords_generated": {
+      "default": false,
+      "title": "Passwords Generated",
+      "type": "boolean"
+    },
     "workdrive_folder_id": {
       "anyOf": [
         {
@@ -108,10 +137,13 @@
       "title": "Workdrive Folder Id"
     },
     "template_name": {
-      "default": "legacy_template",
+      "default": "Opticable_Template_01",
       "enum": [
+        "basic_template",
         "legacy_template",
-        "modern_template"
+        "modern_template",
+        "opticable_template_01",
+        "Opticable_Template_01"
       ],
       "title": "Template Name",
       "type": "string"

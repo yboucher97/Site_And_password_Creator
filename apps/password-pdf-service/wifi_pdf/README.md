@@ -42,7 +42,7 @@ Canonical request shape:
 {
   "building_name": "101-103 Rue Yanick",
   "workdrive_folder_id": "optional-workdrive-folder-id",
-  "template_name": "legacy_template",
+  "template_name": "Opticable_Template_01",
   "records": [
     {
       "ssid": "app101_jw",
@@ -60,7 +60,7 @@ Compatibility note:
 
 - the code also accepts a raw JSON array of records for backward compatibility
 - the recommended production schema is the top-level object above because it carries building metadata and the per-batch WorkDrive folder id
-- `template_name` accepts `basic_template`, `legacy_template`, or `modern_template`
+- `template_name` accepts `Opticable_Template_01`, `opticable_template_01`, `basic_template`, `legacy_template`, or `modern_template`
 - the API also accepts a thin CRM-style payload and normalizes it server-side
 
 Thin CRM-style payload accepted by the VM:
@@ -257,10 +257,10 @@ Generate from a thin CRM-style payload:
 python -m wifi_pdf.cli --input input/wifi_pdf/example_crm_payload.json --print-json
 ```
 
-Force the modern layout from the CLI:
+Force the Opticable layout from the CLI:
 
 ```bash
-python -m wifi_pdf.cli --input input/wifi_pdf/example_records.json --template-name modern_template --print-json
+python -m wifi_pdf.cli --input input/wifi_pdf/example_records.json --template-name Opticable_Template_01 --print-json
 ```
 
 Export the schema:

@@ -300,7 +300,7 @@ def normalize_payload(raw_payload: Any) -> dict[str, Any]:
     building_name = _clean_scalar(_get_first(payload, BUILDING_NAME_KEYS))
     city = _clean_scalar(_get_first(payload, CITY_KEYS))
     crm_record_id = _clean_scalar(_get_first(payload, CRM_RECORD_ID_KEYS))
-    template_name = _clean_scalar(_get_first(payload, TEMPLATE_NAME_KEYS)) or "basic_template"
+    template_name = _clean_scalar(_get_first(payload, TEMPLATE_NAME_KEYS)) or "Opticable_Template_01"
     workdrive_folder_id = extract_workdrive_folder_id(_get_first(payload, WORKDRIVE_KEYS))
 
     if "records" in payload:

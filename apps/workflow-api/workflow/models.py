@@ -99,7 +99,7 @@ class WorkflowBatchRequest(BaseModel):
     workflow_mode: WorkflowMode = "pdf_and_site"
     passwords_generated: bool = False
     ssids_generated: bool = False
-    template_name: str = "basic_template"
+    template_name: str = "Opticable_Template_01"
     workdrive_folder_id: str | None = None
     site_name: str | None = None
     omada_region: str | None = None
@@ -430,7 +430,7 @@ def parse_payload(raw_payload: Any, settings: AppSettings) -> WorkflowBatchReque
 
     city = clean_scalar(get_first(payload, CITY_KEYS))
     crm_record_id = clean_scalar(get_first(payload, CRM_RECORD_ID_KEYS))
-    template_name = clean_scalar(get_first(payload, TEMPLATE_NAME_KEYS)) or "basic_template"
+    template_name = clean_scalar(get_first(payload, TEMPLATE_NAME_KEYS)) or "Opticable_Template_01"
     workdrive_folder_id = _extract_workdrive_folder_id(get_first(payload, WORKDRIVE_KEYS))
     site_name = clean_scalar(get_first(payload, SITE_NAME_KEYS))
     omada_region = clean_scalar(get_first(payload, REGION_KEYS))

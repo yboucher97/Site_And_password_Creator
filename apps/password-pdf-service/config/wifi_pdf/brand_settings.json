@@ -1,14 +1,14 @@
 {
   "branding": {
-    "brand_name": "WifiPlex",
-    "logo_path": "assets/wifi_pdf/wifiplex-logo.png",
-    "support_email": "Support@WifiPlex.ca",
-    "support_phone": "514-556-1556 #2",
-    "primary_color": "#0A4F94",
-    "secondary_color": "#EAF4FF",
-    "accent_color": "#25A4FF",
-    "text_color": "#0D2A47",
-    "muted_text_color": "#475569"
+    "brand_name": "Opticable",
+    "logo_path": "assets/wifi_pdf/opticable-logo.png",
+    "support_email": "support@opticable.ca",
+    "support_phone": "514-316-7236 #2",
+    "primary_color": "#2E8A67",
+    "secondary_color": "#EEF5F1",
+    "accent_color": "#7DD9A8",
+    "text_color": "#222328",
+    "muted_text_color": "#4F5B55"
   },
   "fonts": {
     "regular_name": "DejaVuSans",

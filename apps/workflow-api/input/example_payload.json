@@ -4,7 +4,7 @@
   "workflow_mode": "pdf_and_site",
   "city": "Montreal",
   "workdrive_folder_id": "replace-with-workdrive-folder-id",
-  "template_name": "legacy_template",
+  "template_name": "Opticable_Template_01",
   "site_name": "Workflow Demo Building",
   "omada_region": "Canada",
   "omada_timezone": "America/Toronto",

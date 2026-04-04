@@ -18,14 +18,12 @@ LABEL_PASSWORD = "Mot de passe | Password"
 FR_TITLE = "Instructions en français :"
 EN_TITLE = "English Instructions:"
 KEEP_LINE = "Gardez cette feuille comme référence | Keep this paper for future use"
-TECH_TITLE = "Pour des problèmes de connexion ou des questions techniques | For any technical problems or questions"
-IPTV_TITLE = "Pour toutes questions sur la télévision IP: | For any questions regarding the IPTV:"
-CLOSING_LINE = "Informez-vous aussi de nos autres services comme la téléphonie IP | Ask us as well about our other services, such as VoIP."
+TECH_TITLE = "Support technique | Technical support"
+CLOSING_LINE = "Opticable | support@opticable.ca | 514-316-7236 #2"
 QR_NOTE_FR = "À l'aide de votre appareil intelligent, vous pouvez scanner ce code QR pour accéder à votre réseau WiFi automatiquement sans y rentrer un mot de passe."
 QR_NOTE_EN = "With the help of your phone/tablet, you can scan this QR code to access your WiFi Network automatically."
 
 FR_ITEMS = [
-    "Le nom du réseau WIFI que vous devez utiliser est votre numéro de porte (ex : wp101, porte101)",
     "Vous trouverez ci-joint le nom du réseau et le mot de passe à utiliser pour se connecter au réseau",
     "Veuillez respecter les minuscules et majuscules dans le mot de passe",
     "L’utilisation d’internet est illimitée (téléchargement)",
@@ -34,7 +32,6 @@ FR_ITEMS = [
 ]
 
 EN_ITEMS = [
-    "The network name that you need to use is your unit number (ex : wp101, porte101)",
     "Please respect lower and upper cases in the password",
     "Internet usage is unlimited (Download)",
     "When you connect to the building’s internet network, you acknowledge that you have read and accepted the terms and conditions on this page : wifiplex.ca/terms",
@@ -42,18 +39,10 @@ EN_ITEMS = [
 ]
 
 TECH_ITEMS = [
-    "Clavardage en ligne | Live chat www.wifiplex.ca",
-    "Envoyez un courriel | Email us Support@WifiPlex.ca",
-    "514-556-1556 #2 ou Sans Frais | Toll-free 1-888-777-9778 #2",
+    "www.opticable.ca",
+    "support@opticable.ca",
+    "514-316-7236 #2",
 ]
-
-IPTV_ITEMS = [
-    "https://wifiplex.tv",
-    "tv@wifiplex.ca",
-    "514-556-1556 option 2.",
-]
-
-
 def draw_card(
     canvas: Canvas,
     x: float,
@@ -376,12 +365,8 @@ def draw_sheet_layout(
     canvas.drawCentredString(margin + (panel_width / 2), note_y + 8, KEEP_LINE)
 
     support_y = note_y - 138
-    tech_width = 344
-    iptv_x = margin + tech_width + 14
-    iptv_width = panel_width - tech_width - 14
 
-    draw_card(canvas, margin, support_y, tech_width, 124, theme["support_background"], radius, theme["support_border"])
-    draw_card(canvas, iptv_x, support_y, iptv_width, 124, theme["support_background"], radius, theme["support_border"])
+    draw_card(canvas, margin, support_y, panel_width, 124, theme["support_background"], radius, theme["support_border"])
 
     canvas.setFillColor(theme["title_text"])
     canvas.setFont(fonts["bold"], 9.1)
@@ -390,49 +375,24 @@ def draw_sheet_layout(
         TECH_TITLE,
         margin + 14,
         support_y + 110,
-        tech_width - 28,
+        panel_width - 28,
         fonts["bold"],
         9.1,
         theme["title_text"],
         leading=10.2,
     )
-    draw_numbered_list(
+    draw_bullet_list(
         canvas,
         TECH_ITEMS,
         margin + 14,
         support_y + 78,
-        tech_width - 28,
+        panel_width - 28,
         fonts["regular"],
-        8.4,
+        8.9,
         theme["body_text"],
         theme["bullet"],
-        leading=9.5,
-        gap=2.0,
-    )
-
-    draw_paragraph(
-        canvas,
-        IPTV_TITLE,
-        iptv_x + 14,
-        support_y + 110,
-        iptv_width - 28,
-        fonts["bold"],
-        8.8,
-        theme["title_text"],
-        leading=9.9,
-    )
-    draw_bullet_list(
-        canvas,
-        IPTV_ITEMS,
-        iptv_x + 14,
-        support_y + 76,
-        iptv_width - 28,
-        fonts["regular"],
-        8.4,
-        theme["body_text"],
-        theme["bullet"],
-        leading=9.4,
-        gap=2.0,
+        leading=10.0,
+        gap=3.0,
     )
 
     closing_y = support_y - 40
@@ -580,61 +540,32 @@ def _draw_basic_layout(
 
     support_y = 114
     support_height = 110
-    tech_width = 342
-    iptv_x = margin + tech_width + 12
-    iptv_width = panel_width - tech_width - 12
 
-    draw_card(canvas, margin, support_y, tech_width, support_height, theme["support_background"], radius, theme["support_border"])
-    draw_card(canvas, iptv_x, support_y, iptv_width, support_height, theme["support_background"], radius, theme["support_border"])
+    draw_card(canvas, margin, support_y, panel_width, support_height, theme["support_background"], radius, theme["support_border"])
 
     draw_paragraph(
         canvas,
         TECH_TITLE,
         margin + 12,
         support_y + support_height - 12,
-        tech_width - 24,
+        panel_width - 24,
         fonts["bold"],
         9.85,
         theme["title_text"],
         leading=10.0,
     )
-    draw_numbered_list(
+    draw_bullet_list(
         canvas,
         TECH_ITEMS,
         margin + 12,
         support_y + support_height - 41,
-        tech_width - 24,
+        panel_width - 24,
         fonts["regular"],
         9.6,
         theme["body_text"],
         theme["bullet"],
         leading=10.0,
-        gap=1.4,
-    )
-
-    draw_paragraph(
-        canvas,
-        IPTV_TITLE,
-        iptv_x + 12,
-        support_y + support_height - 12,
-        iptv_width - 24,
-        fonts["bold"],
-        9.65,
-        theme["title_text"],
-        leading=9.8,
-    )
-    draw_bullet_list(
-        canvas,
-        IPTV_ITEMS,
-        iptv_x + 12,
-        support_y + support_height - 44,
-        iptv_width - 24,
-        fonts["regular"],
-        9.55,
-        theme["body_text"],
-        theme["bullet"],
-        leading=9.9,
-        gap=1.4,
+        gap=2.5,
     )
 
     closing_y = 48
@@ -650,3 +581,4 @@ def _draw_basic_layout(
         theme["footer_text"],
         leading=9.3,
     )
+

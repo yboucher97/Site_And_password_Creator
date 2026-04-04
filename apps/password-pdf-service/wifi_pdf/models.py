@@ -9,7 +9,7 @@ from .payload_parser import normalize_payload
 
 
 AuthType = Literal["WPA", "WEP", "nopass"]
-TemplateName = Literal["basic_template", "legacy_template", "modern_template"]
+TemplateName = Literal["basic_template", "legacy_template", "modern_template", "opticable_template_01", "Opticable_Template_01"]
 
 
 class WifiRecord(BaseModel):
@@ -68,7 +68,7 @@ class WifiBatchRequest(BaseModel):
     crm_record_id: str | None = None
     passwords_generated: bool = False
     workdrive_folder_id: str | None = None
-    template_name: TemplateName = "basic_template"
+    template_name: TemplateName = "Opticable_Template_01"
     records: list[WifiRecord] = Field(min_length=1)
 
     @field_validator("building_name")

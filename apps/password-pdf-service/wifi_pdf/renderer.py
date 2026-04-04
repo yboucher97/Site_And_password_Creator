@@ -11,7 +11,12 @@ from reportlab.pdfgen import canvas
 from .config import AppSettings
 from .exceptions import RenderingError
 from .models import WifiRecord
-from .templates import draw_basic_template, draw_legacy_template, draw_modern_template
+from .templates import (
+    draw_basic_template,
+    draw_legacy_template,
+    draw_modern_template,
+    draw_opticable_template_01,
+)
 
 
 PAGE_SIZE_MAP = {
@@ -23,6 +28,8 @@ TEMPLATE_RENDERERS = {
     "basic_template": draw_basic_template,
     "legacy_template": draw_legacy_template,
     "modern_template": draw_modern_template,
+    "opticable_template_01": draw_opticable_template_01,
+    "Opticable_Template_01": draw_opticable_template_01,
 }
 
 SYSTEM_FONT_PATHS = {
