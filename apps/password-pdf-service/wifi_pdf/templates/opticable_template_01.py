@@ -92,6 +92,11 @@ def draw_opticable_template_01(
     label_width = 188
     column_gap = 14
     column_width = (panel_width - column_gap) / 2
+    header_qr_width = 92
+    header_qr_gap = 12
+    instruction_height = 236
+    support_height = 114
+    support_qr_card = 92
 
     canvas.setTitle(f"{building_name} - {record.ssid}")
     canvas.setAuthor(settings.branding.brand_name)
@@ -100,23 +105,27 @@ def draw_opticable_template_01(
 
     canvas.setFillColor(theme["header_background"])
     canvas.rect(0, header_bottom, page_width, header_height, fill=1, stroke=0)
+    header_qr_x = page_width - margin - header_qr_width
     canvas.setFillColor(theme["header_rule"])
-    canvas.rect(margin, header_bottom + 10, panel_width, 6, fill=1, stroke=0)
+    canvas.rect(margin, header_bottom + 10, header_qr_x - margin - header_qr_gap, 6, fill=1, stroke=0)
     draw_logo(canvas, settings.branding.logo_path, margin, header_bottom + 28, 220, 40)
 
     draw_card(
         canvas,
-        page_width - margin - 92,
+        header_qr_x,
         header_bottom + 8,
-        92,
+        header_qr_width,
         70,
         colors.white,
         14,
         theme["qr_border"],
     )
-    draw_qr(canvas, qr_path, page_width - margin - 80, header_bottom + 14, 66, 58)
+    draw_qr(canvas, qr_path, header_qr_x + 12, header_bottom + 14, 66, 58)
 
-    info_y = header_bottom - 86
+    info_y = header_bottom - 110
+    canvas.setFillColor(theme["meta_text"])
+    canvas.setFont(fonts["bold"], 11.2)
+    canvas.drawCentredString(page_width / 2, info_y + 92, building_name)
     draw_label_value_panel(
         canvas,
         margin,
@@ -136,16 +145,7 @@ def draw_opticable_template_01(
         password_min_size=12,
     )
 
-    meta_y = info_y - 38
-    meta_width = 150
-    for index, value in enumerate((building_name, record.unit_label or "WiFi access", f"Sheet {sheet_number}/{sheet_total}")):
-        box_x = margin + (index * (meta_width + 10))
-        draw_card(canvas, box_x, meta_y, meta_width, 24, theme["meta_background"], 12)
-        canvas.setFillColor(theme["meta_text"])
-        canvas.setFont(fonts["bold"], 8.6)
-        canvas.drawCentredString(box_x + (meta_width / 2), meta_y + 8, value)
-
-    qr_note_y = meta_y - 54
+    qr_note_y = info_y - 56
     draw_card(canvas, margin, qr_note_y, panel_width, 44, theme["note_background"], 12, theme["panel_border"])
     canvas.setFillColor(theme["note_text"])
     draw_paragraph(
@@ -162,23 +162,23 @@ def draw_opticable_template_01(
         bold_fragments=True,
     )
 
-    instructions_y = qr_note_y - 238
+    instructions_y = qr_note_y - 254
     for column_index, (title, items) in enumerate(((FR_TITLE, FR_ITEMS), (EN_TITLE, EN_ITEMS))):
         box_x = margin + (column_index * (column_width + column_gap))
-        draw_card(canvas, box_x, instructions_y, column_width, 220, theme["section_background"], radius, theme["section_border"])
-        _draw_section_title(canvas, box_x + 14, instructions_y + 200, column_width - 28, title, fonts)
+        draw_card(canvas, box_x, instructions_y, column_width, instruction_height, theme["section_background"], radius, theme["section_border"])
+        _draw_section_title(canvas, box_x + 14, instructions_y + instruction_height - 20, column_width - 28, title, fonts)
         draw_bullet_list(
             canvas,
             items,
             box_x + 16,
-            instructions_y + 182,
+            instructions_y + instruction_height - 40,
             column_width - 32,
             fonts["regular"],
-            8.35,
+            9.35,
             theme["body_text"],
             theme["bullet"],
-            leading=9.3,
-            gap=2.0,
+            leading=11.8,
+            gap=3.8,
         )
 
     keep_y = instructions_y - 30
@@ -187,22 +187,28 @@ def draw_opticable_template_01(
     canvas.setFont(fonts["bold"], 9.1)
     canvas.drawCentredString(margin + (panel_width / 2), keep_y + 8, KEEP_LINE)
 
-    support_y = keep_y - 118
-    draw_card(canvas, margin, support_y, panel_width, 104, theme["support_background"], radius, theme["support_border"])
-    _draw_section_title(canvas, margin + 14, support_y + 86, panel_width - 28, SUPPORT_TITLE, fonts)
+    support_y = keep_y - 126
+    draw_card(canvas, margin, support_y, panel_width, support_height, theme["support_background"], radius, theme["support_border"])
+    support_content_x = margin + 16
+    support_qr_x = margin + panel_width - support_qr_card - 14
+    support_qr_y = support_y + 11
+    support_content_width = support_qr_x - support_content_x - 14
+    _draw_section_title(canvas, support_content_x, support_y + support_height - 18, support_content_width, SUPPORT_TITLE, fonts)
     draw_bullet_list(
         canvas,
         SUPPORT_ITEMS,
-        margin + 16,
-        support_y + 66,
-        panel_width - 32,
+        support_content_x,
+        support_y + support_height - 40,
+        support_content_width,
         fonts["regular"],
-        9.4,
+        10.8,
         theme["body_text"],
         theme["bullet"],
-        leading=10.1,
-        gap=3.2,
+        leading=12.8,
+        gap=6.2,
     )
+    draw_card(canvas, support_qr_x, support_qr_y, support_qr_card, support_qr_card, colors.white, 14, theme["panel_border"])
+    draw_qr(canvas, qr_path, support_qr_x + 10, support_qr_y + 10, support_qr_card - 20, support_qr_card - 20)
 
     footer_y = support_y - 34
     draw_card(canvas, margin, footer_y, panel_width, 24, theme["footer_background"], 12)
