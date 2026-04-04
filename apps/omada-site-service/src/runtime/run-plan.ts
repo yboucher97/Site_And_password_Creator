@@ -14,12 +14,78 @@ export interface RunPlanResult {
   report: RunReport;
 }
 
+interface LiveSiteSnapshot {
+  version: number;
+  operation: string;
+  source: string;
+  passwordsAvailable: boolean;
+  site: { id: string; name: string };
+  lans: Array<{ id: string; name: string; vlan: number }>;
+  wlanGroups: Array<{
+    id: string;
+    name: string;
+    ssids: Array<{ id: string; name: string; password: string | null }>;
+  }>;
+}
+
 function slugify(value: string): string {
   return value
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "")
     .slice(0, 80) || "site";
+}
+
+function normalizeKey(value: string): string {
+  return value.trim().toLowerCase();
+}
+
+function enrichSnapshotWithPlanPasswords(snapshot: LiveSiteSnapshot, site: OmadaSite): LiveSiteSnapshot {
+  const passwordByGroupAndSsid = new Map<string, string>();
+  const passwordBySsid = new Map<string, string>();
+
+  for (const group of site.wlanGroups) {
+    for (const ssid of group.ssids) {
+      if (!ssid.password) {
+        continue;
+      }
+
+      const groupKey = normalizeKey(group.name);
+      const ssidKey = normalizeKey(ssid.name);
+      passwordByGroupAndSsid.set(`${groupKey}::${ssidKey}`, ssid.password);
+      if (!passwordBySsid.has(ssidKey)) {
+        passwordBySsid.set(ssidKey, ssid.password);
+      }
+    }
+  }
+
+  let matchedPasswords = 0;
+  const wlanGroups = snapshot.wlanGroups.map((group) => {
+    const groupKey = normalizeKey(group.name);
+    const ssids = group.ssids.map((ssid) => {
+      const ssidKey = normalizeKey(ssid.name);
+      const password = passwordByGroupAndSsid.get(`${groupKey}::${ssidKey}`) ?? passwordBySsid.get(ssidKey) ?? null;
+      if (password) {
+        matchedPasswords += 1;
+      }
+      return {
+        ...ssid,
+        password,
+      };
+    });
+
+    return {
+      ...group,
+      ssids,
+    };
+  });
+
+  return {
+    ...snapshot,
+    source: matchedPasswords > 0 ? "live_omada_plus_applied_plan" : snapshot.source,
+    passwordsAvailable: matchedPasswords > 0,
+    wlanGroups,
+  };
 }
 
 async function withStep<T>(
@@ -172,10 +238,10 @@ async function applySite(
 async function writeLiveSiteArtifact(
   portal: OmadaPortal,
   reporter: RunReporter,
-  siteName: string,
+  site: OmadaSite,
 ): Promise<void> {
-  const snapshot = await portal.buildSiteSnapshot(siteName);
-  const fileName = `live-site-${slugify(siteName)}.yaml`;
+  const snapshot = enrichSnapshotWithPlanPasswords(await portal.buildSiteSnapshot(site.name), site);
+  const fileName = `live-site-${slugify(site.name)}.yaml`;
   const outputPath = resolve(reporter.outputDir, fileName);
   await writeFile(outputPath, stringifyYaml(snapshot), "utf8");
   reporter.addArtifact("live-site-yaml", fileName, outputPath);
@@ -219,7 +285,7 @@ export async function runPlanFromFile(planPath: string, forceDryRun = false): Pr
       for (const site of plan.sites) {
         try {
           await applySite(portal, reporter, plan, site);
-          await writeLiveSiteArtifact(portal, reporter, site.name);
+          await writeLiveSiteArtifact(portal, reporter, site);
         } catch (error) {
           reporter.log("error", `Site ${site.name} failed: ${String(error)}`);
           if (plan.execution.stopOnError) {
