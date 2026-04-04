@@ -89,7 +89,7 @@ def draw_opticable_template_01(
     header_height = 88
     header_bottom = page_height - header_height
     panel_width = page_width - (2 * margin)
-    label_width = 188
+    label_width = 224
     column_gap = 14
     column_width = (panel_width - column_gap) / 2
     header_qr_width = 92
