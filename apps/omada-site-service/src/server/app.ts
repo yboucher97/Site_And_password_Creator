@@ -5,10 +5,12 @@ import type { Server } from "node:http";
 import { basename, extname, resolve } from "node:path";
 
 import { parsePlan, summarizePlan, validatePlanData } from "../config/load-plan";
-import { launchLoginBrowser } from "../omada/session";
+import { controllerSchema, type OmadaPlan } from "../config/schema";
+import { OmadaPortal } from "../omada/portal";
+import { launchLoginBrowser, withAuthenticatedSession } from "../omada/session";
 import { browserProfileDir, ensureRuntimeDirs, examplesDir, publicDir, uploadsDir } from "../runtime/paths";
+import { RunReporter, type RunReport } from "../runtime/report";
 import { runPlanFromFile } from "../runtime/run-plan";
-import type { RunReport } from "../runtime/report";
 
 const upload = multer({ storage: multer.memoryStorage() });
 const webhookTextTypes = [
@@ -45,6 +47,8 @@ interface WebhookJob {
   report?: RunReport;
   error?: string;
 }
+
+type ControllerSettings = OmadaPlan["controller"];
 
 function timestampedFileName(originalName: string): string {
   const stamp = new Date().toISOString().replace(/[:.]/g, "-");
@@ -86,6 +90,77 @@ function readWebhookToken(req: express.Request): string | null {
 
   const headerToken = req.get("x-omada-webhook-token")?.trim();
   return headerToken ? headerToken : null;
+}
+
+function requireWebhookAuth(req: express.Request, res: express.Response): string | null {
+  const configuredToken = process.env.OMADA_SITE_CREATOR_WEBHOOK_TOKEN;
+  if (!configuredToken) {
+    res.status(503).json({
+      ok: false,
+      error: "Webhook support is disabled. Set OMADA_SITE_CREATOR_WEBHOOK_TOKEN first.",
+    });
+    return null;
+  }
+
+  const providedToken = readWebhookToken(req);
+  if (providedToken !== configuredToken) {
+    res.status(401).json({
+      ok: false,
+      error: "Webhook token is invalid.",
+    });
+    return null;
+  }
+
+  return configuredToken;
+}
+
+function readBoolean(value: string | undefined): boolean | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  const normalized = value.trim().toLowerCase();
+  if (["1", "true", "yes", "on"].includes(normalized)) {
+    return true;
+  }
+  if (["0", "false", "no", "off"].includes(normalized)) {
+    return false;
+  }
+  return undefined;
+}
+
+function buildDiscoveryController(req: express.Request): ControllerSettings {
+  const organizationName = String(
+    req.query.organizationName
+    ?? process.env.OMADA_SITE_CREATOR_ORGANIZATION_NAME
+    ?? process.env.OMADA_ORGANIZATION_NAME
+    ?? "",
+  ).trim();
+
+  if (!organizationName) {
+    throw new Error("Discovery requests need organizationName in the query string or OMADA_SITE_CREATOR_ORGANIZATION_NAME in the environment.");
+  }
+
+  const browserChannel = String(
+    req.query.browserChannel
+    ?? process.env.OMADA_SITE_CREATOR_BROWSER_CHANNEL
+    ?? "chromium",
+  ).trim();
+
+  const headless = readBoolean(String(req.query.headless ?? "")) ?? readBoolean(process.env.OMADA_SITE_CREATOR_HEADLESS) ?? true;
+  const baseUrl = String(
+    req.query.baseUrl
+    ?? process.env.OMADA_SITE_CREATOR_BASE_URL
+    ?? process.env.OMADA_CLOUD_BASE_URL
+    ?? "https://use1-omada-cloud.tplinkcloud.com/",
+  ).trim();
+
+  return controllerSchema.parse({
+    organizationName,
+    baseUrl,
+    browserChannel,
+    headless,
+  });
 }
 
 async function resolveWebhookPlan(req: express.Request): Promise<{
@@ -216,6 +291,159 @@ export function createApp(): express.Express {
     });
   });
 
+  app.get("/api/discovery/sites", async (req, res) => {
+    if (!requireWebhookAuth(req, res)) {
+      return;
+    }
+
+    try {
+      const controller = buildDiscoveryController(req);
+      const search = typeof req.query.search === "string" ? req.query.search : undefined;
+      const reporter = new RunReporter("omada-discovery", true);
+
+      const items = await withAuthenticatedSession(controller, async ({ page }) => {
+        const portal = new OmadaPortal(page, reporter, controller);
+        await portal.ensureOrganizationSelected(controller.organizationName);
+        return await portal.listSites(search);
+      });
+
+      res.json({
+        ok: true,
+        organizationName: controller.organizationName,
+        count: items.length,
+        items,
+      });
+    } catch (error) {
+      res.status(500).json({
+        ok: false,
+        error: String(error),
+      });
+    }
+  });
+
+  app.get("/api/discovery/sites/:siteId", async (req, res) => {
+    if (!requireWebhookAuth(req, res)) {
+      return;
+    }
+
+    try {
+      const controller = buildDiscoveryController(req);
+      const reporter = new RunReporter("omada-discovery", true);
+
+      const site = await withAuthenticatedSession(controller, async ({ page }) => {
+        const portal = new OmadaPortal(page, reporter, controller);
+        await portal.ensureOrganizationSelected(controller.organizationName);
+        return await portal.getSiteById(req.params.siteId);
+      });
+
+      if (!site) {
+        res.status(404).json({
+          ok: false,
+          error: `Site ${req.params.siteId} was not found.`,
+        });
+        return;
+      }
+
+      res.json({
+        ok: true,
+        site,
+      });
+    } catch (error) {
+      res.status(500).json({
+        ok: false,
+        error: String(error),
+      });
+    }
+  });
+
+  app.get("/api/discovery/sites/:siteId/lans", async (req, res) => {
+    if (!requireWebhookAuth(req, res)) {
+      return;
+    }
+
+    try {
+      const controller = buildDiscoveryController(req);
+      const reporter = new RunReporter("omada-discovery", true);
+
+      const items = await withAuthenticatedSession(controller, async ({ page }) => {
+        const portal = new OmadaPortal(page, reporter, controller);
+        await portal.ensureOrganizationSelected(controller.organizationName);
+        return await portal.listLanNetworksForSite(req.params.siteId);
+      });
+
+      res.json({
+        ok: true,
+        siteId: req.params.siteId,
+        count: items.length,
+        items,
+      });
+    } catch (error) {
+      res.status(500).json({
+        ok: false,
+        error: String(error),
+      });
+    }
+  });
+
+  app.get("/api/discovery/sites/:siteId/wlan-groups", async (req, res) => {
+    if (!requireWebhookAuth(req, res)) {
+      return;
+    }
+
+    try {
+      const controller = buildDiscoveryController(req);
+      const reporter = new RunReporter("omada-discovery", true);
+
+      const items = await withAuthenticatedSession(controller, async ({ page }) => {
+        const portal = new OmadaPortal(page, reporter, controller);
+        await portal.ensureOrganizationSelected(controller.organizationName);
+        return await portal.listWlanGroupsForSite(req.params.siteId);
+      });
+
+      res.json({
+        ok: true,
+        siteId: req.params.siteId,
+        count: items.length,
+        items,
+      });
+    } catch (error) {
+      res.status(500).json({
+        ok: false,
+        error: String(error),
+      });
+    }
+  });
+
+  app.get("/api/discovery/sites/:siteId/wlan-groups/:wlanId/ssids", async (req, res) => {
+    if (!requireWebhookAuth(req, res)) {
+      return;
+    }
+
+    try {
+      const controller = buildDiscoveryController(req);
+      const reporter = new RunReporter("omada-discovery", true);
+
+      const items = await withAuthenticatedSession(controller, async ({ page }) => {
+        const portal = new OmadaPortal(page, reporter, controller);
+        await portal.ensureOrganizationSelected(controller.organizationName);
+        return await portal.listSsidsForGroup(req.params.siteId, req.params.wlanId);
+      });
+
+      res.json({
+        ok: true,
+        siteId: req.params.siteId,
+        wlanId: req.params.wlanId,
+        count: items.length,
+        items,
+      });
+    } catch (error) {
+      res.status(500).json({
+        ok: false,
+        error: String(error),
+      });
+    }
+  });
+
   app.post("/api/session/login", async (_req, res) => {
     try {
       const session = await launchLoginBrowser({
@@ -307,21 +535,7 @@ export function createApp(): express.Express {
   });
 
   app.post("/api/webhooks/run", async (req, res) => {
-    const configuredToken = process.env.OMADA_SITE_CREATOR_WEBHOOK_TOKEN;
-    if (!configuredToken) {
-      res.status(503).json({
-        ok: false,
-        error: "Webhook support is disabled. Set OMADA_SITE_CREATOR_WEBHOOK_TOKEN first.",
-      });
-      return;
-    }
-
-    const providedToken = readWebhookToken(req);
-    if (providedToken !== configuredToken) {
-      res.status(401).json({
-        ok: false,
-        error: "Webhook token is invalid.",
-      });
+    if (!requireWebhookAuth(req, res)) {
       return;
     }
 

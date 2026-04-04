@@ -55,10 +55,16 @@ One request enters the workflow API, and the workflow API orchestrates the inter
 
 Focused Omada operations.
 
+Start with GET discovery endpoints first, then add POST creation endpoints after callers can reliably resolve IDs.
+
 Examples:
 
-- `POST /v1/omada/sites`
+- `GET /v1/omada/sites`
 - `GET /v1/omada/sites/{siteId}`
+- `GET /v1/omada/sites/{siteId}/lans`
+- `GET /v1/omada/sites/{siteId}/wlan-groups`
+- `GET /v1/omada/sites/{siteId}/wlan-groups/{groupId}/ssids`
+- `POST /v1/omada/sites`
 - `POST /v1/omada/sites/{siteId}/lans`
 - `POST /v1/omada/sites/{siteId}/wlan-groups`
 - `POST /v1/omada/sites/{siteId}/wlan-groups/{groupId}/ssids`

@@ -220,6 +220,50 @@ export class OmadaPortal {
     this.reporter.log("success", `Created SSID "${ssid.name}" in WLAN group "${group.name}".`);
   }
 
+  public async listSites(searchKey?: string): Promise<Array<{ id: string; name: string }>> {
+    const response = await this.callControllerApi<{ data?: SiteListEntry[] }>(
+      `/api/v2/sites/basic?currentPageSize=200&currentPage=1&searchKey=${encodeURIComponent(searchKey ?? "")}`,
+    );
+    if (response.errorCode !== 0) {
+      throw new Error(response.msg ?? "Unable to load Omada sites.");
+    }
+
+    return (response.result?.data ?? []).map((entry) => ({
+      id: entry.id,
+      name: entry.name,
+    }));
+  }
+
+  public async getSiteById(siteId: string): Promise<{ id: string; name: string } | null> {
+    const sites = await this.listSites();
+    return sites.find((entry) => entry.id === siteId) ?? null;
+  }
+
+  public async listLanNetworksForSite(siteId: string): Promise<Array<{ id: string; name: string; vlan: number }>> {
+    const networks = await this.listLanNetworks(siteId);
+    return networks.map((entry) => ({
+      id: entry.id,
+      name: entry.name,
+      vlan: entry.vlan,
+    }));
+  }
+
+  public async listWlanGroupsForSite(siteId: string): Promise<Array<{ id: string; name: string }>> {
+    const groups = await this.listWlanGroups(siteId);
+    return groups.map((entry) => ({
+      id: entry.id,
+      name: entry.name,
+    }));
+  }
+
+  public async listSsidsForGroup(siteId: string, wlanId: string): Promise<Array<{ id: string; name: string }>> {
+    const ssids = await this.listSsids(siteId, wlanId);
+    return ssids.map((entry) => ({
+      id: entry.id,
+      name: entry.name,
+    }));
+  }
+
   private async goToSitesSection(): Promise<QueryRoot> {
     const existingFrame = this.getAppFrame();
     if (existingFrame?.url().includes("#dashboardGlobal")) {

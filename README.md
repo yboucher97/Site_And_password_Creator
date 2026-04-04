@@ -124,6 +124,11 @@ With `SITE_AND_PASSWORD_API_HOST=api01.opticable.ca`, Caddy exposes:
 - `https://api01.opticable.ca/v1/integrations/zoho/oauth/start`
 - `https://api01.opticable.ca/v1/integrations/zoho/oauth/callback`
 - `https://api01.opticable.ca/v1/integrations/zoho/oauth/status`
+- `https://api01.opticable.ca/v1/omada/sites`
+- `https://api01.opticable.ca/v1/omada/sites/{siteId}`
+- `https://api01.opticable.ca/v1/omada/sites/{siteId}/lans`
+- `https://api01.opticable.ca/v1/omada/sites/{siteId}/wlan-groups`
+- `https://api01.opticable.ca/v1/omada/sites/{siteId}/wlan-groups/{wlanId}/ssids`
 - `https://api01.opticable.ca/v1/workflows/site-and-password`
 - `https://api01.opticable.ca/v1/workflows/site-and-password/jobs/{job_id}`
 - `https://api01.opticable.ca/v1/site-and-password/health`
@@ -155,6 +160,8 @@ The public workflow service now exposes a real OpenAPI surface:
 - root platform index: `https://api01.opticable.ca/`
 
 This gives you one documented master API endpoint for current and future webhook-driven apps.
+
+The Omada domain now starts with GET-first discovery endpoints so callers can resolve site IDs, VLAN/LAN objects, WLAN groups, and SSIDs before using future POST actions.
 
 ## Zoho OAuth
 

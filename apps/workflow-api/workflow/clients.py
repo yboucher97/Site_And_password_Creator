@@ -78,3 +78,70 @@ class OmadaClient:
                 return job
             time.sleep(self.settings.poll_interval_seconds)
         raise TimeoutError(f"Timed out waiting for Omada Site Creator job {job_id}.")
+
+    def _auth_headers(self) -> dict[str, str]:
+        return {
+            "Authorization": f"Bearer {self.settings.webhook_token}",
+        }
+
+    def _discovery_params(self, extra: dict[str, Any] | None = None) -> dict[str, Any]:
+        params: dict[str, Any] = {
+            "organizationName": self.settings.organization_name,
+            "baseUrl": self.settings.cloud_base_url,
+            "browserChannel": self.settings.browser_channel,
+            "headless": str(self.settings.headless).lower(),
+        }
+        if extra:
+            params.update(extra)
+        return params
+
+    def list_sites(self, search: str | None = None) -> dict[str, Any]:
+        params = self._discovery_params({"search": search} if search else None)
+        response = httpx.get(
+            f"{self.settings.base_url}/api/discovery/sites",
+            params=params,
+            headers=self._auth_headers(),
+            timeout=60,
+        )
+        response.raise_for_status()
+        return response.json()
+
+    def get_site(self, site_id: str) -> dict[str, Any]:
+        response = httpx.get(
+            f"{self.settings.base_url}/api/discovery/sites/{site_id}",
+            params=self._discovery_params(),
+            headers=self._auth_headers(),
+            timeout=60,
+        )
+        response.raise_for_status()
+        return response.json()
+
+    def list_lans(self, site_id: str) -> dict[str, Any]:
+        response = httpx.get(
+            f"{self.settings.base_url}/api/discovery/sites/{site_id}/lans",
+            params=self._discovery_params(),
+            headers=self._auth_headers(),
+            timeout=60,
+        )
+        response.raise_for_status()
+        return response.json()
+
+    def list_wlan_groups(self, site_id: str) -> dict[str, Any]:
+        response = httpx.get(
+            f"{self.settings.base_url}/api/discovery/sites/{site_id}/wlan-groups",
+            params=self._discovery_params(),
+            headers=self._auth_headers(),
+            timeout=60,
+        )
+        response.raise_for_status()
+        return response.json()
+
+    def list_ssids(self, site_id: str, wlan_id: str) -> dict[str, Any]:
+        response = httpx.get(
+            f"{self.settings.base_url}/api/discovery/sites/{site_id}/wlan-groups/{wlan_id}/ssids",
+            params=self._discovery_params(),
+            headers=self._auth_headers(),
+            timeout=60,
+        )
+        response.raise_for_status()
+        return response.json()

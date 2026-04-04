@@ -22,6 +22,15 @@ Long-term, the public API should converge on:
 
 See [API Blueprint](./api-blueprint.md).
 
+The Omada domain should be GET-first:
+
+- discover sites
+- discover LANs
+- discover WLAN groups
+- discover SSIDs
+
+then add POST/PATCH actions once callers can resolve the required IDs safely.
+
 - `/`
 - `/docs`
 - `/openapi.json`

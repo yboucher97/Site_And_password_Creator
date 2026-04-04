@@ -9,6 +9,7 @@ from fastapi import Body, FastAPI, Header, HTTPException, Query
 from fastapi.responses import HTMLResponse, RedirectResponse
 from pydantic import BaseModel
 
+from .clients import OmadaClient
 from .config import load_settings
 from .jobs import JobStore
 from .logging_utils import configure_logging
@@ -80,6 +81,56 @@ class JobLookupResponse(BaseModel):
     result: dict[str, Any] | None = None
 
 
+class OmadaSiteItem(BaseModel):
+    id: str
+    name: str
+
+
+class OmadaLanItem(BaseModel):
+    id: str
+    name: str
+    vlan: int
+
+
+class OmadaNamedItem(BaseModel):
+    id: str
+    name: str
+
+
+class OmadaSitesResponse(BaseModel):
+    ok: bool
+    organizationName: str
+    count: int
+    items: list[OmadaSiteItem]
+
+
+class OmadaSiteResponse(BaseModel):
+    ok: bool
+    site: OmadaSiteItem
+
+
+class OmadaLansResponse(BaseModel):
+    ok: bool
+    siteId: str
+    count: int
+    items: list[OmadaLanItem]
+
+
+class OmadaWlanGroupsResponse(BaseModel):
+    ok: bool
+    siteId: str
+    count: int
+    items: list[OmadaNamedItem]
+
+
+class OmadaSsidsResponse(BaseModel):
+    ok: bool
+    siteId: str
+    wlanId: str
+    count: int
+    items: list[OmadaNamedItem]
+
+
 class ZohoOAuthStatusResponse(BaseModel):
     provider: str
     configured: bool
@@ -140,6 +191,11 @@ def _service_catalog() -> list[ServiceRoute]:
             path_prefix="/v1/integrations/zoho",
             description="Server-side Zoho OAuth setup for WorkDrive and optional CRM integration.",
         ),
+        ServiceRoute(
+            name="omada",
+            path_prefix="/v1/omada",
+            description="Public Omada discovery API for sites, LANs, WLAN groups, and SSIDs.",
+        ),
     ]
 
 
@@ -199,6 +255,7 @@ app = FastAPI(
     openapi_tags=[
         {"name": "platform", "description": "Platform index, catalog, and shared health endpoints."},
         {"name": "site-and-password", "description": "Primary workflow endpoints for webhook intake and job tracking."},
+        {"name": "omada", "description": "Read-first Omada discovery endpoints for sites and network objects."},
         {"name": "integrations", "description": "External integration setup and status endpoints."},
         {"name": "compatibility", "description": "Legacy endpoints preserved for older webhook clients."},
     ],
@@ -298,6 +355,52 @@ async def platform_catalog() -> PlatformIndexResponse:
 @app.get("/v1/site-and-password/health", response_model=HealthResponse, tags=["site-and-password"])
 async def workflow_health() -> HealthResponse:
     return _health_payload()
+
+
+@app.get("/v1/omada/sites", response_model=OmadaSitesResponse, tags=["omada"])
+async def omada_list_sites(
+    search: str | None = Query(default=None),
+    x_api_key: str | None = Header(default=None, alias="X-API-Key"),
+) -> dict[str, Any]:
+    _validate_api_key(x_api_key)
+    return OmadaClient(settings.omada).list_sites(search)
+
+
+@app.get("/v1/omada/sites/{site_id}", response_model=OmadaSiteResponse, tags=["omada"])
+async def omada_get_site(
+    site_id: str,
+    x_api_key: str | None = Header(default=None, alias="X-API-Key"),
+) -> dict[str, Any]:
+    _validate_api_key(x_api_key)
+    return OmadaClient(settings.omada).get_site(site_id)
+
+
+@app.get("/v1/omada/sites/{site_id}/lans", response_model=OmadaLansResponse, tags=["omada"])
+async def omada_list_lans(
+    site_id: str,
+    x_api_key: str | None = Header(default=None, alias="X-API-Key"),
+) -> dict[str, Any]:
+    _validate_api_key(x_api_key)
+    return OmadaClient(settings.omada).list_lans(site_id)
+
+
+@app.get("/v1/omada/sites/{site_id}/wlan-groups", response_model=OmadaWlanGroupsResponse, tags=["omada"])
+async def omada_list_wlan_groups(
+    site_id: str,
+    x_api_key: str | None = Header(default=None, alias="X-API-Key"),
+) -> dict[str, Any]:
+    _validate_api_key(x_api_key)
+    return OmadaClient(settings.omada).list_wlan_groups(site_id)
+
+
+@app.get("/v1/omada/sites/{site_id}/wlan-groups/{wlan_id}/ssids", response_model=OmadaSsidsResponse, tags=["omada"])
+async def omada_list_ssids(
+    site_id: str,
+    wlan_id: str,
+    x_api_key: str | None = Header(default=None, alias="X-API-Key"),
+) -> dict[str, Any]:
+    _validate_api_key(x_api_key)
+    return OmadaClient(settings.omada).list_ssids(site_id, wlan_id)
 
 
 @app.get(ZOHO_OAUTH_STATUS_PATH, response_model=ZohoOAuthStatusResponse, tags=["integrations"])

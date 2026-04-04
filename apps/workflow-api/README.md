@@ -26,6 +26,11 @@ This app is the orchestration layer inside the monorepo. It sits in front of:
 - `GET /v1/integrations/zoho/oauth/start`
 - `GET /v1/integrations/zoho/oauth/callback`
 - `GET /v1/integrations/zoho/oauth/status`
+- `GET /v1/omada/sites`
+- `GET /v1/omada/sites/{site_id}`
+- `GET /v1/omada/sites/{site_id}/lans`
+- `GET /v1/omada/sites/{site_id}/wlan-groups`
+- `GET /v1/omada/sites/{site_id}/wlan-groups/{wlan_id}/ssids`
 - `POST /v1/workflows/site-and-password`
 - `GET /v1/workflows/site-and-password/jobs/{job_id}`
 - `GET /v1/site-and-password/health`
