@@ -1,3 +1,6 @@
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import type { BrowserContext, Page } from "playwright";
 import { chromium } from "playwright";
 
@@ -186,7 +189,9 @@ export async function withAuthenticatedSession<T>(
     throw new Error("Close the interactive login browser before starting a run.");
   }
 
-  const context = await chromium.launchPersistentContext(browserProfileDir, buildOptions(controller, false));
+  const useEphemeralProfile = Boolean(resolveCloudAccount(controller));
+  const profileDir = useEphemeralProfile ? await mkdtemp(join(tmpdir(), "omada-run-")) : browserProfileDir;
+  const context = await chromium.launchPersistentContext(profileDir, buildOptions(controller, false));
 
   try {
     const page = context.pages()[0] ?? await context.newPage();
@@ -204,5 +209,8 @@ export async function withAuthenticatedSession<T>(
     return await work({ context, page });
   } finally {
     await context.close();
+    if (useEphemeralProfile) {
+      await rm(profileDir, { recursive: true, force: true }).catch(() => undefined);
+    }
   }
 }
