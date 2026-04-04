@@ -231,10 +231,10 @@ Upload behavior:
 
 - the app treats the provided WorkDrive folder id as the parent building folder
 - it searches inside that folder for a child folder named `Document locataire`
+- if `Document locataire` is missing, the app creates it automatically
 - uploads go into that child folder
 - uploads include the merged PDF, the individual PDFs, the TXT export, the `.ya` export, and the ZIP export by default
 - uploads overwrite same-name files in that child folder by default
-- if `Document locataire` is missing, the batch fails with a clear WorkDrive error instead of uploading to the wrong place
 
 ## Usage
 
