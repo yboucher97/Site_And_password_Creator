@@ -13,29 +13,29 @@ ZOHO_OAUTH_CREDENTIALS_PATH="${ZOHO_OAUTH_CREDENTIALS_PATH:-${SHARED_DATA_DIR}/z
 INSTALL_RUNTIME_SNAPSHOT="${INSTALL_RUNTIME_SNAPSHOT:-/root/opticable-api-platform.generated.env}"
 
 PDF_APP_DIR="${INSTALL_DIR}/apps/password-pdf-service"
-PDF_SERVICE_NAME="${PASSWORD_PDF_SERVICE_NAME:-password-pdf-generator}"
-PDF_SERVICE_USER="${PASSWORD_PDF_SERVICE_USER:-passwordpdf}"
-PDF_DATA_DIR="${PASSWORD_PDF_DATA_DIR:-/var/lib/password-pdf-generator}"
-PDF_CONFIG_DIR="${PASSWORD_PDF_CONFIG_DIR:-/etc/password-pdf-generator}"
+PDF_SERVICE_NAME="${PASSWORD_PDF_SERVICE_NAME:-opticable-password-pdf}"
+PDF_SERVICE_USER="${PASSWORD_PDF_SERVICE_USER:-opticable-password-pdf}"
+PDF_DATA_DIR="${PASSWORD_PDF_DATA_DIR:-/var/lib/opticable-password-pdf}"
+PDF_CONFIG_DIR="${PASSWORD_PDF_CONFIG_DIR:-/etc/opticable-password-pdf}"
 PDF_CONFIG_PATH="${PDF_CONFIG_DIR}/brand_settings.json"
-PDF_ENV_FILE="${PASSWORD_PDF_ENV_FILE:-/etc/password-pdf-generator.env}"
+PDF_ENV_FILE="${PASSWORD_PDF_ENV_FILE:-/etc/opticable-password-pdf.env}"
 PDF_PORT="${PASSWORD_PDF_PORT:-8000}"
 PDF_HOST="${PASSWORD_PDF_HOST:-}"
 
 OMADA_APP_DIR="${INSTALL_DIR}/apps/omada-site-service"
-OMADA_SERVICE_NAME="${OMADA_SITE_CREATOR_SERVICE_NAME:-omada-site-creator}"
-OMADA_SERVICE_USER="${OMADA_SITE_CREATOR_USER:-omada-site-creator}"
-OMADA_DATA_DIR="${OMADA_SITE_CREATOR_DATA_DIR:-/var/lib/omada-site-creator}"
-OMADA_ENV_FILE="${OMADA_SITE_CREATOR_ENV_FILE:-/etc/omada-site-creator.env}"
+OMADA_SERVICE_NAME="${OMADA_SITE_CREATOR_SERVICE_NAME:-opticable-omada-site}"
+OMADA_SERVICE_USER="${OMADA_SITE_CREATOR_USER:-opticable-omada-site}"
+OMADA_DATA_DIR="${OMADA_SITE_CREATOR_DATA_DIR:-/var/lib/opticable-omada-site}"
+OMADA_ENV_FILE="${OMADA_SITE_CREATOR_ENV_FILE:-/etc/opticable-omada-site.env}"
 OMADA_PORT="${OMADA_SITE_CREATOR_PORT:-3210}"
 OMADA_HOST="${OMADA_SITE_CREATOR_PUBLIC_HOST:-}"
 OMADA_PLAYWRIGHT_BROWSERS_PATH="${OMADA_SITE_CREATOR_PLAYWRIGHT_BROWSERS_PATH:-${OMADA_DATA_DIR}/ms-playwright}"
 
 WORKFLOW_APP_DIR="${INSTALL_DIR}/apps/workflow-api"
-WORKFLOW_SERVICE_NAME="${SITE_AND_PASSWORD_WORKFLOW_SERVICE_NAME:-site-and-password-workflow}"
-WORKFLOW_SERVICE_USER="${SITE_AND_PASSWORD_WORKFLOW_USER:-sitepasswordworkflow}"
-WORKFLOW_DATA_DIR="${SITE_AND_PASSWORD_WORKFLOW_DATA_DIR:-/var/lib/site-and-password-workflow}"
-WORKFLOW_ENV_FILE="${SITE_AND_PASSWORD_WORKFLOW_ENV_FILE:-/etc/site-and-password-workflow.env}"
+WORKFLOW_SERVICE_NAME="${SITE_AND_PASSWORD_WORKFLOW_SERVICE_NAME:-opticable-workflow-api}"
+WORKFLOW_SERVICE_USER="${SITE_AND_PASSWORD_WORKFLOW_USER:-opticable-workflow-api}"
+WORKFLOW_DATA_DIR="${SITE_AND_PASSWORD_WORKFLOW_DATA_DIR:-/var/lib/opticable-workflow-api}"
+WORKFLOW_ENV_FILE="${SITE_AND_PASSWORD_WORKFLOW_ENV_FILE:-/etc/opticable-workflow-api.env}"
 WORKFLOW_PORT="${SITE_AND_PASSWORD_WORKFLOW_PORT:-8100}"
 WORKFLOW_HOST="${SITE_AND_PASSWORD_WORKFLOW_PUBLIC_HOST:-}"
 
@@ -52,6 +52,22 @@ ZOHO_OAUTH_SCOPES="${ZOHO_OAUTH_SCOPES:-WorkDrive.files.READ,WorkDrive.files.CRE
 AUTO_SWAP_ENABLED="${AUTO_SWAP_ENABLED:-true}"
 AUTO_SWAP_SIZE_GB="${AUTO_SWAP_SIZE_GB:-4}"
 AUTO_SWAP_PATH="${AUTO_SWAP_PATH:-/swapfile}"
+
+LEGACY_PDF_SERVICE_NAME="password-pdf-generator"
+LEGACY_PDF_SERVICE_USER="passwordpdf"
+LEGACY_PDF_DATA_DIR="/var/lib/password-pdf-generator"
+LEGACY_PDF_CONFIG_DIR="/etc/password-pdf-generator"
+LEGACY_PDF_ENV_FILE="/etc/password-pdf-generator.env"
+
+LEGACY_OMADA_SERVICE_NAME="omada-site-creator"
+LEGACY_OMADA_SERVICE_USER="omada-site-creator"
+LEGACY_OMADA_DATA_DIR="/var/lib/omada-site-creator"
+LEGACY_OMADA_ENV_FILE="/etc/omada-site-creator.env"
+
+LEGACY_WORKFLOW_SERVICE_NAME="site-and-password-workflow"
+LEGACY_WORKFLOW_SERVICE_USER="sitepasswordworkflow"
+LEGACY_WORKFLOW_DATA_DIR="/var/lib/site-and-password-workflow"
+LEGACY_WORKFLOW_ENV_FILE="/etc/site-and-password-workflow.env"
 
 log() {
   printf '[%s] %s\n' "${APP_NAME}" "$*"
@@ -153,6 +169,128 @@ ensure_secrets() {
   fi
   if [[ -z "${SITE_AND_PASSWORD_WORKFLOW_API_KEY}" ]]; then
     SITE_AND_PASSWORD_WORKFLOW_API_KEY="$(generate_secret)"
+  fi
+}
+
+stop_service_if_present() {
+  local service_name="$1"
+  if systemctl is-active --quiet "${service_name}" 2>/dev/null; then
+    systemctl stop "${service_name}" || true
+  fi
+  if systemctl is-enabled --quiet "${service_name}" 2>/dev/null; then
+    systemctl disable "${service_name}" || true
+  fi
+}
+
+migrate_file_if_needed() {
+  local legacy_path="$1"
+  local new_path="$2"
+  if [[ "${legacy_path}" == "${new_path}" || ! -f "${legacy_path}" ]]; then
+    return
+  fi
+
+  mkdir -p "$(dirname "${new_path}")"
+  if [[ ! -e "${new_path}" ]]; then
+    mv "${legacy_path}" "${new_path}"
+    return
+  fi
+
+  if cmp -s "${legacy_path}" "${new_path}"; then
+    rm -f "${legacy_path}"
+    return
+  fi
+
+  cp -f "${legacy_path}" "${new_path}.legacy.bak"
+  rm -f "${legacy_path}"
+}
+
+migrate_dir_if_needed() {
+  local legacy_path="$1"
+  local new_path="$2"
+  if [[ "${legacy_path}" == "${new_path}" || ! -d "${legacy_path}" ]]; then
+    return
+  fi
+
+  mkdir -p "$(dirname "${new_path}")"
+  if [[ ! -e "${new_path}" ]]; then
+    mv "${legacy_path}" "${new_path}"
+    return
+  fi
+
+  cp -a "${legacy_path}/." "${new_path}/"
+  rm -rf "${legacy_path}"
+}
+
+migrate_legacy_runtime_artifacts() {
+  if [[ "${PDF_SERVICE_NAME}" != "${LEGACY_PDF_SERVICE_NAME}" ]]; then
+    stop_service_if_present "${LEGACY_PDF_SERVICE_NAME}"
+    migrate_file_if_needed "${LEGACY_PDF_ENV_FILE}" "${PDF_ENV_FILE}"
+    migrate_dir_if_needed "${LEGACY_PDF_CONFIG_DIR}" "${PDF_CONFIG_DIR}"
+    migrate_dir_if_needed "${LEGACY_PDF_DATA_DIR}" "${PDF_DATA_DIR}"
+  fi
+
+  if [[ "${OMADA_SERVICE_NAME}" != "${LEGACY_OMADA_SERVICE_NAME}" ]]; then
+    stop_service_if_present "${LEGACY_OMADA_SERVICE_NAME}"
+    migrate_file_if_needed "${LEGACY_OMADA_ENV_FILE}" "${OMADA_ENV_FILE}"
+    migrate_dir_if_needed "${LEGACY_OMADA_DATA_DIR}" "${OMADA_DATA_DIR}"
+  fi
+
+  if [[ "${WORKFLOW_SERVICE_NAME}" != "${LEGACY_WORKFLOW_SERVICE_NAME}" ]]; then
+    stop_service_if_present "${LEGACY_WORKFLOW_SERVICE_NAME}"
+    migrate_file_if_needed "${LEGACY_WORKFLOW_ENV_FILE}" "${WORKFLOW_ENV_FILE}"
+    migrate_dir_if_needed "${LEGACY_WORKFLOW_DATA_DIR}" "${WORKFLOW_DATA_DIR}"
+  fi
+}
+
+cleanup_legacy_runtime_artifacts() {
+  local removed_systemd_units=0
+  local removed_caddy_files=0
+  local legacy_files=(
+    "/etc/systemd/system/${LEGACY_PDF_SERVICE_NAME}.service"
+    "/etc/systemd/system/${LEGACY_OMADA_SERVICE_NAME}.service"
+    "/etc/systemd/system/${LEGACY_WORKFLOW_SERVICE_NAME}.service"
+    "/etc/caddy/conf.d/${LEGACY_PDF_SERVICE_NAME}.caddy"
+    "/etc/caddy/conf.d/${LEGACY_OMADA_SERVICE_NAME}.caddy"
+    "/etc/caddy/conf.d/${LEGACY_WORKFLOW_SERVICE_NAME}.caddy"
+    "${LEGACY_PDF_ENV_FILE}"
+    "${LEGACY_OMADA_ENV_FILE}"
+    "${LEGACY_WORKFLOW_ENV_FILE}"
+  )
+
+  local legacy_dirs=(
+    "${LEGACY_PDF_DATA_DIR}"
+    "${LEGACY_PDF_CONFIG_DIR}"
+    "${LEGACY_OMADA_DATA_DIR}"
+    "${LEGACY_WORKFLOW_DATA_DIR}"
+  )
+
+  for path in "${legacy_files[@]}"; do
+    if [[ -e "${path}" ]]; then
+      case "${path}" in
+        /etc/systemd/system/*.service)
+          removed_systemd_units=1
+          ;;
+        /etc/caddy/conf.d/*.caddy)
+          removed_caddy_files=1
+          ;;
+      esac
+      rm -f "${path}"
+    fi
+  done
+
+  for path in "${legacy_dirs[@]}"; do
+    if [[ -d "${path}" ]]; then
+      rmdir "${path}" 2>/dev/null || true
+    fi
+  done
+
+  systemctl reset-failed "${LEGACY_PDF_SERVICE_NAME}" "${LEGACY_OMADA_SERVICE_NAME}" "${LEGACY_WORKFLOW_SERVICE_NAME}" 2>/dev/null || true
+  if (( removed_systemd_units )); then
+    systemctl daemon-reload
+  fi
+  if (( removed_caddy_files )) && systemctl is-active --quiet caddy 2>/dev/null; then
+    caddy validate --config /etc/caddy/Caddyfile
+    systemctl reload caddy
   fi
 }
 
@@ -734,8 +872,8 @@ print_summary() {
     echo "Docs:            https://${PUBLIC_API_HOST}/docs"
     echo "OpenAPI JSON:    https://${PUBLIC_API_HOST}/openapi.json"
     echo "Catalog:         https://${PUBLIC_API_HOST}/v1/system/catalog"
-    echo "Workflow webhook: https://${PUBLIC_API_HOST}/v1/site-and-password/webhooks/zoho"
-    echo "Workflow jobs:    https://${PUBLIC_API_HOST}/v1/site-and-password/jobs"
+    echo "Workflow create:  https://${PUBLIC_API_HOST}/v1/workflows/site-and-password"
+    echo "Workflow jobs:    https://${PUBLIC_API_HOST}/v1/workflows/site-and-password/jobs/{job_id}"
     echo "Workflow health:  https://${PUBLIC_API_HOST}/v1/system/health"
     echo "Zoho OAuth start: https://${PUBLIC_API_HOST}/v1/integrations/zoho/oauth/start"
     echo "Zoho OAuth status: https://${PUBLIC_API_HOST}/v1/integrations/zoho/oauth/status"
@@ -754,8 +892,9 @@ main() {
   ensure_packages
   ensure_swap
   ensure_secrets
-  ensure_users_and_dirs
   sync_repo
+  migrate_legacy_runtime_artifacts
+  ensure_users_and_dirs
   install_pdf_app
   write_pdf_service
   install_omada_app
@@ -766,6 +905,7 @@ main() {
   configure_caddy
   configure_ufw
   start_services
+  cleanup_legacy_runtime_artifacts
   print_summary
 }
 

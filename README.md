@@ -30,33 +30,28 @@ What it does:
 - installs Python, Node.js, Caddy, and Playwright Chromium
 - creates swap automatically on small VMs when no swap exists
 - creates and enables:
-  - `password-pdf-generator.service`
-  - `omada-site-creator.service`
-  - `site-and-password-workflow.service`
+  - `opticable-password-pdf.service`
+  - `opticable-omada-site.service`
+  - `opticable-workflow-api.service`
 - creates default runtime files:
-  - `/etc/password-pdf-generator.env`
-  - `/etc/password-pdf-generator/brand_settings.json`
-  - `/etc/omada-site-creator.env`
-- `/etc/site-and-password-workflow.env`
+  - `/etc/opticable-password-pdf.env`
+  - `/etc/opticable-password-pdf/brand_settings.json`
+  - `/etc/opticable-omada-site.env`
+  - `/etc/opticable-workflow-api.env`
 - `/root/opticable-api-platform.generated.env`
+- migrates old `password-pdf-generator`, `omada-site-creator`, and `site-and-password-workflow` runtime artifacts to the new `opticable-*` names, then removes the stale units and config files after the new services are running
 - optionally writes one master Caddy site if you provide `SITE_AND_PASSWORD_API_HOST`
-
-Runtime artifact names currently stay on the legacy service names for compatibility:
-
-- `password-pdf-generator`
-- `omada-site-creator`
-- `site-and-password-workflow`
 
 Important runtime paths:
 
 - combined code: `/opt/opticable-api-platform`
-- PDF data: `/var/lib/password-pdf-generator`
-- Omada data: `/var/lib/omada-site-creator`
-- Workflow data: `/var/lib/site-and-password-workflow`
-- PDF config: `/etc/password-pdf-generator/brand_settings.json`
-- PDF secrets: `/etc/password-pdf-generator.env`
-- Omada secrets: `/etc/omada-site-creator.env`
-- Workflow secrets: `/etc/site-and-password-workflow.env`
+- PDF data: `/var/lib/opticable-password-pdf`
+- Omada data: `/var/lib/opticable-omada-site`
+- Workflow data: `/var/lib/opticable-workflow-api`
+- PDF config: `/etc/opticable-password-pdf/brand_settings.json`
+- PDF secrets: `/etc/opticable-password-pdf.env`
+- Omada secrets: `/etc/opticable-omada-site.env`
+- Workflow secrets: `/etc/opticable-workflow-api.env`
 - Generated runtime snapshot: `/root/opticable-api-platform.generated.env`
 
 Optional installer variables:
@@ -133,10 +128,6 @@ With `SITE_AND_PASSWORD_API_HOST=api01.opticable.ca`, Caddy exposes:
 - `https://api01.opticable.ca/v1/omada/sites/{siteId}/wlan-groups/{wlanId}/ssids`
 - `https://api01.opticable.ca/v1/workflows/site-and-password`
 - `https://api01.opticable.ca/v1/workflows/site-and-password/jobs/{job_id}`
-- `https://api01.opticable.ca/v1/site-and-password/health`
-- `https://api01.opticable.ca/v1/site-and-password/jobs`
-- `https://api01.opticable.ca/v1/site-and-password/jobs/{job_id}`
-- `https://api01.opticable.ca/v1/site-and-password/webhooks/zoho`
 - `https://api01.opticable.ca/pdf/health`
 - `https://api01.opticable.ca/omada/api/health`
 - `https://api01.opticable.ca/workflow/health`
