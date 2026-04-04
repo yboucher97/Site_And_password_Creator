@@ -3,6 +3,7 @@ import type { Frame, Locator, Page } from "playwright";
 import type { OmadaLan, OmadaMutationMode, OmadaPlan, OmadaSite, OmadaSsid, OmadaWlanGroup } from "../config/schema";
 import type { RunReporter } from "../runtime/report";
 import { clickFirstVisible, escapeRegex, fillFirstVisible, findFirstVisible, type QueryRoot } from "./locators";
+import { recoverCloudLogin } from "./session";
 
 interface ControllerApiEnvelope<T> {
   errorCode: number;
@@ -926,7 +927,16 @@ export class OmadaPortal {
 
   private async ensureStillAuthenticated(): Promise<void> {
     if (this.page.url().includes("id.tplinkcloud.com")) {
-      throw new Error("Omada session expired. Re-open the login browser and sign in again.");
+      this.reporter.log("warning", "Omada session expired. Attempting automatic cloud re-login.");
+      const recovered = await recoverCloudLogin(this.page, this.controller).catch((error) => {
+        this.reporter.log("error", `Automatic cloud re-login failed: ${String(error)}`);
+        return false;
+      });
+      if (recovered) {
+        this.reporter.log("success", "Recovered Omada cloud session automatically.");
+        return;
+      }
+      throw new Error("Omada session expired and automatic cloud re-login failed.");
     }
   }
 

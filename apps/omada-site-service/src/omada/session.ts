@@ -142,6 +142,20 @@ async function attemptAutomaticCloudLogin(page: Page, controller: ControllerSett
   );
 }
 
+export async function recoverCloudLogin(page: Page, controller: ControllerSettings): Promise<boolean> {
+  if (!page.url().includes("id.tplinkcloud.com")) {
+    return true;
+  }
+
+  const loggedIn = await attemptAutomaticCloudLogin(page, controller);
+  if (!loggedIn) {
+    return false;
+  }
+
+  await navigateToOrgManager(page, controller);
+  return true;
+}
+
 export async function launchLoginBrowser(controller: ControllerSettings): Promise<{ message: string; alreadyOpen: boolean; closePromise: Promise<void>; }> {
   ensureRuntimeDirs();
 
@@ -198,12 +212,10 @@ export async function withAuthenticatedSession<T>(
     await navigateToOrgManager(page, controller);
 
     if (page.url().includes("id.tplinkcloud.com")) {
-      const loggedIn = await attemptAutomaticCloudLogin(page, controller);
+      const loggedIn = await recoverCloudLogin(page, controller);
       if (!loggedIn) {
         throw new Error("Stored session is not logged in. Open the login browser first, or set OMADA_SITE_CREATOR_CLOUD_EMAIL and OMADA_SITE_CREATOR_CLOUD_PASSWORD for automatic login.");
       }
-
-      await navigateToOrgManager(page, controller);
     }
 
     return await work({ context, page });
