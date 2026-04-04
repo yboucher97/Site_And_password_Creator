@@ -32,6 +32,8 @@ This app is the orchestration layer inside the monorepo. It sits in front of:
 - `GET /v1/omada/sites/{site_id}/lans`
 - `GET /v1/omada/sites/{site_id}/wlan-groups`
 - `GET /v1/omada/sites/{site_id}/wlan-groups/{wlan_id}/ssids`
+- `POST /v1/omada/jobs`
+- `GET /v1/omada/jobs/{job_id}`
 - `POST /v1/workflows/site-and-password`
 - `GET /v1/workflows/site-and-password/jobs/{job_id}`
 - `GET /v1/site-and-password/health`
@@ -44,6 +46,16 @@ This app is the orchestration layer inside the monorepo. It sits in front of:
 - `POST /webhooks/zoho/site-workflow`
 
 The unversioned paths and the older `/v1/site-and-password/*` paths remain as compatibility aliases.
+
+## Direct Omada Plan Webhook
+
+Use `POST /v1/omada/jobs` when you already have an Omada YAML or JSON plan and want the master API host to forward it directly to the Omada service.
+
+- send raw YAML, raw JSON, or a JSON plan body
+- include `X-Plan-File-Name` if you want to control the saved file name
+- poll `GET /v1/omada/jobs/{job_id}` for completion
+
+This is the clean standalone path for site-template style jobs that should not go through password/PDF generation.
 
 ## Credential Modes
 
@@ -80,6 +92,24 @@ The unversioned paths and the older `/v1/site-and-password/*` paths remain as co
 - still generate `omada-plan.yaml`
 - upload `omada-plan.yaml` to WorkDrive when `workdrive_folder_id` is provided
 - create the Omada site directly
+
+## Current Omada Mutation Behavior
+
+Today the Omada service is still `ensure/create-only`:
+
+- if a site does not exist, it is created
+- if a LAN does not exist, it is created
+- if a WLAN group does not exist, it is created
+- if an SSID does not exist, it is created
+- if an item already exists, it is left unchanged
+
+That means true in-place update behavior for existing VLANs, WLAN groups, and SSIDs is not implemented yet.
+
+For AP assignment safety:
+
+- creating or updating inside the same existing WLAN group is the correct future approach
+- deleting and recreating WLAN groups would risk changing AP assignment behavior
+- the next safe increment is an explicit update policy per object, not implicit overwrite
 
 ## Zoho OAuth
 

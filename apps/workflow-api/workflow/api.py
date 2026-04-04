@@ -131,6 +131,13 @@ class OmadaSsidsResponse(BaseModel):
     items: list[OmadaNamedItem]
 
 
+class OmadaJobAcceptedResponse(BaseModel):
+    status: str
+    job_id: str | None = None
+    job_status_url: str | None = None
+    job: dict[str, Any]
+
+
 class ZohoOAuthStatusResponse(BaseModel):
     provider: str
     configured: bool
@@ -194,7 +201,7 @@ def _service_catalog() -> list[ServiceRoute]:
         ServiceRoute(
             name="omada",
             path_prefix="/v1/omada",
-            description="Public Omada discovery API for sites, LANs, WLAN groups, and SSIDs.",
+            description="Public Omada discovery and plan-submission API for sites, LANs, WLAN groups, SSIDs, and direct YAML/JSON job intake.",
         ),
     ]
 
@@ -413,6 +420,42 @@ async def omada_list_ssids(
 ) -> dict[str, Any]:
     _validate_api_key(x_api_key)
     return OmadaClient(settings.omada).list_ssids(site_id, wlan_id)
+
+
+@app.get("/v1/omada/jobs/{job_id}", tags=["omada"])
+async def omada_get_job(
+    job_id: str,
+    x_api_key: str | None = Header(default=None, alias="X-API-Key"),
+) -> dict[str, Any]:
+    _validate_api_key(x_api_key)
+    return OmadaClient(settings.omada).get_job(job_id)
+
+
+@app.post("/v1/omada/jobs", response_model=OmadaJobAcceptedResponse, tags=["omada"])
+async def omada_create_job(
+    request: Request,
+    x_api_key: str | None = Header(default=None, alias="X-API-Key"),
+    x_plan_file_name: str | None = Header(default=None, alias="X-Plan-File-Name"),
+) -> OmadaJobAcceptedResponse:
+    _validate_api_key(x_api_key)
+
+    body = await request.body()
+    if not body:
+        raise HTTPException(status_code=422, detail="Request body cannot be empty.")
+
+    content_type = request.headers.get("content-type", "").split(";", 1)[0].strip() or None
+    response = OmadaClient(settings.omada).create_job_from_raw(body, content_type, x_plan_file_name)
+    job = response.get("job")
+    if not isinstance(job, dict):
+        raise HTTPException(status_code=502, detail="Omada service returned an unexpected job payload.")
+
+    job_id = str(job.get("id")) if job.get("id") is not None else None
+    return OmadaJobAcceptedResponse(
+        status="accepted",
+        job_id=job_id,
+        job_status_url=f"/v1/omada/jobs/{job_id}" if job_id else None,
+        job=job,
+    )
 
 
 @app.get(ZOHO_OAUTH_STATUS_PATH, response_model=ZohoOAuthStatusResponse, tags=["integrations"])

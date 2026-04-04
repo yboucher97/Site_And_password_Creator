@@ -63,6 +63,22 @@ class OmadaClient:
         response.raise_for_status()
         return response.json()
 
+    def create_job_from_raw(self, content: bytes, content_type: str | None = None, file_name: str | None = None) -> dict[str, Any]:
+        headers = self._auth_headers()
+        if content_type:
+            headers["Content-Type"] = content_type
+        if file_name:
+            headers["X-Plan-File-Name"] = file_name
+
+        response = httpx.post(
+            f"{self.settings.base_url}/api/webhooks/run",
+            content=content,
+            headers=headers,
+            timeout=60,
+        )
+        response.raise_for_status()
+        return response.json()
+
     def get_job(self, job_id: str) -> dict[str, Any]:
         response = httpx.get(f"{self.settings.base_url}/api/jobs/{job_id}", timeout=30)
         response.raise_for_status()

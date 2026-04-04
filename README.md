@@ -126,6 +126,8 @@ With `SITE_AND_PASSWORD_API_HOST=api01.opticable.ca`, Caddy exposes:
 - `https://api01.opticable.ca/v1/omada/sites/{siteId}/lans`
 - `https://api01.opticable.ca/v1/omada/sites/{siteId}/wlan-groups`
 - `https://api01.opticable.ca/v1/omada/sites/{siteId}/wlan-groups/{wlanId}/ssids`
+- `https://api01.opticable.ca/v1/omada/jobs`
+- `https://api01.opticable.ca/v1/omada/jobs/{job_id}`
 - `https://api01.opticable.ca/v1/workflows/site-and-password`
 - `https://api01.opticable.ca/v1/workflows/site-and-password/jobs/{job_id}`
 - `https://api01.opticable.ca/pdf/health`
@@ -155,6 +157,13 @@ The public workflow service now exposes a real OpenAPI surface:
 This gives you one documented master API endpoint for current and future webhook-driven apps.
 
 The Omada domain now starts with GET-first discovery endpoints so callers can resolve site IDs, VLAN/LAN objects, WLAN groups, and SSIDs before using future POST actions.
+
+The Omada domain also supports direct plan submission:
+
+- `POST /v1/omada/jobs`
+- `GET /v1/omada/jobs/{job_id}`
+
+Use that path when you already have an Omada YAML/JSON plan and want the master API host to submit it directly.
 
 ## Zoho OAuth
 
@@ -231,6 +240,19 @@ Supported webhook flags:
 - writes `omada-plan.yaml`
 - uploads `omada-plan.yaml` to WorkDrive when `workdrive_folder_id` is provided
 - creates the Omada site directly
+
+## Current Omada Update Behavior
+
+Current Omada execution is create/ensure-only:
+
+- existing sites are reused
+- existing VLAN/LAN objects are left unchanged
+- existing WLAN groups are left unchanged
+- existing SSIDs are left unchanged
+
+So site modification and in-place SSID/VLAN updates are the next feature, not part of the current implementation.
+
+That is intentional for now, because keeping an SSID inside the same existing WLAN group is the safe way to preserve AP assignment. The next build step should add explicit update modes instead of silent overwrite behavior.
 
 ## Suggested Deployment Model
 
