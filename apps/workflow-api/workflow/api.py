@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import threading
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import Any, Literal
 
 import yaml
@@ -441,6 +442,50 @@ def _run_job(job_id: str, raw_payload: dict, batch) -> None:
         logger.info("Workflow job %s completed", job_id)
 
 
+def _upload_omada_live_site_artifacts(workdrive_folder_id: str, omada_job: dict[str, Any]) -> list[dict[str, Any]]:
+    report = omada_job.get("report")
+    if not isinstance(report, dict):
+        return []
+
+    artifacts = report.get("artifacts")
+    if not isinstance(artifacts, list):
+        return []
+
+    workdrive_client = WorkflowWorkDriveClient(settings.zoho_oauth, logger)
+    uploads: list[dict[str, Any]] = []
+
+    for artifact in artifacts:
+        if not isinstance(artifact, dict):
+            continue
+        if str(artifact.get("type", "")).strip() != "live-site-yaml":
+            continue
+
+        artifact_path = Path(str(artifact.get("path", "")).strip())
+        if not artifact_path.exists():
+            logger.warning("Omada live-site artifact path is missing: %s", artifact_path)
+            continue
+
+        upload_result = workdrive_client.upload_file(artifact_path, workdrive_folder_id)
+        upload_result["artifact_type"] = "live-site-yaml"
+        uploads.append(upload_result)
+
+    return uploads
+
+
+def _watch_omada_workdrive_job(job_id: str, workdrive_folder_id: str) -> None:
+    try:
+        omada_job = OmadaClient(settings.omada).wait_for_completion(job_id)
+        if str(omada_job.get("status", "")).lower() != "success":
+            logger.info("Omada WorkDrive job %s finished without success. Skipping live-site upload.", job_id)
+            return
+
+        uploads = _upload_omada_live_site_artifacts(workdrive_folder_id, omada_job)
+        if uploads:
+            logger.info("Omada WorkDrive job %s uploaded %d live-site artifact(s).", job_id, len(uploads))
+    except Exception:
+        logger.exception("Omada WorkDrive job %s live-site upload watcher failed", job_id)
+
+
 def _health_payload() -> HealthResponse:
     return HealthResponse(
         status="ok",
@@ -649,6 +694,13 @@ async def omada_create_job_from_workdrive(
         raise HTTPException(status_code=502, detail="Omada service returned an unexpected job payload.")
 
     job_id = str(job.get("id")) if job.get("id") is not None else None
+    if job_id:
+        threading.Thread(
+            target=_watch_omada_workdrive_job,
+            args=(job_id, payload.workdrive_folder_id),
+            daemon=True,
+        ).start()
+
     return OmadaWorkDriveJobAcceptedResponse(
         status="accepted",
         operation=payload.operation,

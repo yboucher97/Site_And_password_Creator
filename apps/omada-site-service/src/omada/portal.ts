@@ -328,6 +328,51 @@ export class OmadaPortal {
     }));
   }
 
+  public async buildSiteSnapshot(siteName: string): Promise<{
+    version: number;
+    operation: string;
+    source: string;
+    passwordsAvailable: boolean;
+    site: { id: string; name: string };
+    lans: Array<{ id: string; name: string; vlan: number }>;
+    wlanGroups: Array<{ id: string; name: string; ssids: Array<{ id: string; name: string; password: null }> }>;
+  }> {
+    const site = await this.findSiteByName(siteName);
+    if (!site) {
+      throw new Error(`Site "${siteName}" was not found when building the live snapshot.`);
+    }
+
+    const lans = await this.listLanNetworksForSite(site.id);
+    const groups = await this.listWlanGroupsForSite(site.id);
+    const wlanGroups: Array<{ id: string; name: string; ssids: Array<{ id: string; name: string; password: null }> }> = [];
+
+    for (const group of groups) {
+      const ssids = await this.listSsidsForGroup(site.id, group.id);
+      wlanGroups.push({
+        id: group.id,
+        name: group.name,
+        ssids: ssids.map((ssid) => ({
+          id: ssid.id,
+          name: ssid.name,
+          password: null,
+        })),
+      });
+    }
+
+    return {
+      version: 1,
+      operation: "get",
+      source: "live_omada",
+      passwordsAvailable: false,
+      site: {
+        id: site.id,
+        name: site.name,
+      },
+      lans,
+      wlanGroups,
+    };
+  }
+
   private async goToSitesSection(): Promise<QueryRoot> {
     const existingFrame = this.getAppFrame();
     if (existingFrame?.url().includes("#dashboardGlobal")) {

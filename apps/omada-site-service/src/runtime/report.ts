@@ -23,6 +23,12 @@ export interface RunStep {
   screenshotPath?: string;
 }
 
+export interface RunArtifact {
+  type: string;
+  name: string;
+  path: string;
+}
+
 export interface RunReport {
   runId: string;
   planFileName: string;
@@ -32,6 +38,7 @@ export interface RunReport {
   dryRun: boolean;
   logs: RunLogEntry[];
   steps: RunStep[];
+  artifacts: RunArtifact[];
   summary: {
     success: number;
     failed: number;
@@ -63,6 +70,7 @@ export class RunReporter {
       dryRun,
       logs: [],
       steps: [],
+      artifacts: [],
       summary: {
         success: 0,
         failed: 0,
@@ -111,6 +119,10 @@ export class RunReporter {
     const path = resolve(this.outputDir, `${slugify(label)}.png`);
     await page.screenshot({ path, fullPage: true });
     return path;
+  }
+
+  public addArtifact(type: string, name: string, path: string): void {
+    this.report.artifacts.push({ type, name, path });
   }
 
   public async finalize(status: "success" | "failed"): Promise<RunReport> {

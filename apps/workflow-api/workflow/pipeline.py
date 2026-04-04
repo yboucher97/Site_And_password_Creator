@@ -60,6 +60,7 @@ class SiteWorkflowPipeline:
 
         omada_job_id: str | None = None
         omada_job: dict[str, Any] | None = None
+        omada_live_site_uploads: list[dict[str, Any]] = []
 
         if batch.workflow_mode in {"pdf_and_site", "site_only"}:
             self.logger.info("Workflow job %s: creating Omada Site Creator job", job_id)
@@ -68,6 +69,8 @@ class SiteWorkflowPipeline:
             omada_job = self._get_omada_client().wait_for_completion(omada_job_id)
             if str(omada_job.get("status", "")).lower() != "success":
                 raise RuntimeError(f"Omada Site Creator job {omada_job_id} failed: {omada_job.get('error')}")
+            if batch.workdrive_folder_id:
+                omada_live_site_uploads = self._upload_omada_live_site_artifacts(omada_job, batch.workdrive_folder_id)
 
         return {
             "building_name": batch.building_name,
@@ -84,8 +87,38 @@ class SiteWorkflowPipeline:
             "pdf_job": pdf_job,
             "omada_plan_upload": omada_plan_upload,
             "omada_job": omada_job,
+            "omada_live_site_uploads": omada_live_site_uploads or None,
         }
 
     def _write_json(self, path: Path, payload: dict[str, Any]) -> Path:
         path.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
         return path
+
+    def _upload_omada_live_site_artifacts(self, omada_job: dict[str, Any], parent_folder_id: str) -> list[dict[str, Any]]:
+        report = omada_job.get("report")
+        if not isinstance(report, dict):
+            return []
+
+        artifacts = report.get("artifacts")
+        if not isinstance(artifacts, list):
+            return []
+
+        uploads: list[dict[str, Any]] = []
+        workdrive_client = self._get_workdrive_client()
+
+        for artifact in artifacts:
+            if not isinstance(artifact, dict):
+                continue
+            if str(artifact.get("type", "")).strip() != "live-site-yaml":
+                continue
+
+            artifact_path = Path(str(artifact.get("path", "")).strip())
+            if not artifact_path.exists():
+                self.logger.warning("Omada live-site artifact path is missing: %s", artifact_path)
+                continue
+
+            upload_result = workdrive_client.upload_file(artifact_path, parent_folder_id)
+            upload_result["artifact_type"] = "live-site-yaml"
+            uploads.append(upload_result)
+
+        return uploads

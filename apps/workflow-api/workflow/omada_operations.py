@@ -55,9 +55,6 @@ def resolve_workdrive_execution_source(
     if operation == "get":
         raise ValueError("Operation 'get' uses the live snapshot endpoint, not WorkDrive execution.")
 
-    if operation == "update":
-        raise ValueError("Operation 'update' is reserved for future in-place Omada mutation support.")
-
     artifact = _resolve_artifact(
         client,
         parent_folder_id=parent_folder_id,
@@ -94,12 +91,7 @@ def resolve_workdrive_execution_source(
             site_name=resolved_site_name,
         )
 
-    if not (site_name or building_name):
-        raise ValueError(
-            "TXT fallback needs at least one of building_name or site_name so the Omada site can be named."
-        )
-
-    resolved_site_name = site_name or building_name or Path(artifact.file_name).stem
+    resolved_site_name = site_name or building_name or _derive_site_name_from_artifact_name(artifact.file_name)
     resolved_building_name = building_name or resolved_site_name
     records = _parse_txt_records(artifact.content, artifact.file_name)
     batch = WorkflowBatchRequest(
@@ -285,6 +277,12 @@ def _extract_yaml_site_name(plan_dict: dict[str, Any]) -> str | None:
         return None
     name = first_site.get("name")
     return str(name).strip() if name else None
+
+
+def _derive_site_name_from_artifact_name(file_name: str) -> str:
+    stem = Path(file_name).stem.strip()
+    normalized = stem.removeprefix("Mot de passe ").removeprefix("MDP_Site_").removeprefix("MDP_Site ").strip()
+    return normalized or "Omada Site"
 
 
 def _set_plan_mutation_mode(plan_dict: dict[str, Any], operation: OmadaOperation) -> None:

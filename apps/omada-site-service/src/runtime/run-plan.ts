@@ -1,5 +1,6 @@
-import { mkdir } from "node:fs/promises";
-import { basename } from "node:path";
+import { mkdir, writeFile } from "node:fs/promises";
+import { basename, resolve } from "node:path";
+import { stringify as stringifyYaml } from "yaml";
 
 import { loadPlanFromPath, summarizePlan } from "../config/load-plan";
 import type { OmadaMutationMode, OmadaPlan, OmadaSite, OmadaSsid, OmadaWlanGroup } from "../config/schema";
@@ -11,6 +12,14 @@ import { RunReporter, type RunReport } from "./report";
 export interface RunPlanResult {
   plan: OmadaPlan;
   report: RunReport;
+}
+
+function slugify(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 80) || "site";
 }
 
 async function withStep<T>(
@@ -160,6 +169,19 @@ async function applySite(
   }
 }
 
+async function writeLiveSiteArtifact(
+  portal: OmadaPortal,
+  reporter: RunReporter,
+  siteName: string,
+): Promise<void> {
+  const snapshot = await portal.buildSiteSnapshot(siteName);
+  const fileName = `live-site-${slugify(siteName)}.yaml`;
+  const outputPath = resolve(reporter.outputDir, fileName);
+  await writeFile(outputPath, stringifyYaml(snapshot), "utf8");
+  reporter.addArtifact("live-site-yaml", fileName, outputPath);
+  reporter.log("info", `Wrote live site snapshot "${fileName}".`);
+}
+
 export async function runPlanFromFile(planPath: string, forceDryRun = false): Promise<RunPlanResult> {
   ensureRuntimeDirs();
 
@@ -197,6 +219,7 @@ export async function runPlanFromFile(planPath: string, forceDryRun = false): Pr
       for (const site of plan.sites) {
         try {
           await applySite(portal, reporter, plan, site);
+          await writeLiveSiteArtifact(portal, reporter, site.name);
         } catch (error) {
           reporter.log("error", `Site ${site.name} failed: ${String(error)}`);
           if (plan.execution.stopOnError) {
