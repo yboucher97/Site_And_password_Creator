@@ -503,6 +503,13 @@ defaults = {
 for key, value in defaults.items():
     existing.setdefault(key, value)
 
+legacy_data_dir = "/var/lib/omada-site-creator/data"
+legacy_browsers_path = "/var/lib/omada-site-creator/ms-playwright"
+if existing.get("OMADA_SITE_CREATOR_DATA_DIR", "").strip() in {"", legacy_data_dir}:
+    existing["OMADA_SITE_CREATOR_DATA_DIR"] = defaults["OMADA_SITE_CREATOR_DATA_DIR"]
+if existing.get("PLAYWRIGHT_BROWSERS_PATH", "").strip() in {"", legacy_browsers_path}:
+    existing["PLAYWRIGHT_BROWSERS_PATH"] = defaults["PLAYWRIGHT_BROWSERS_PATH"]
+
 for key in [
     "OMADA_SITE_CREATOR_WEBHOOK_TOKEN",
     "OMADA_SITE_CREATOR_CLOUD_EMAIL",
@@ -643,6 +650,10 @@ defaults = {
 
 for key, value in defaults.items():
     existing.setdefault(key, value)
+
+legacy_output_root = "/var/lib/site-and-password-workflow/output"
+if existing.get("SITE_WORKFLOW_OUTPUT_ROOT", "").strip() in {"", legacy_output_root}:
+    existing["SITE_WORKFLOW_OUTPUT_ROOT"] = defaults["SITE_WORKFLOW_OUTPUT_ROOT"]
 
 for key in [
     "SITE_WORKFLOW_API_KEY",
