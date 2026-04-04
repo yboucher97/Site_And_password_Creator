@@ -17,12 +17,22 @@ This app is the orchestration layer inside the monorepo. It sits in front of:
 
 ## Endpoints
 
+- `GET /`
+- `GET /api`
+- `GET /docs`
+- `GET /openapi.json`
+- `GET /v1/system/health`
+- `GET /v1/system/catalog`
+- `GET /v1/site-and-password/health`
+- `GET /v1/site-and-password/jobs/{job_id}`
+- `POST /v1/site-and-password/jobs`
+- `POST /v1/site-and-password/webhooks/zoho`
 - `GET /health`
 - `GET /jobs/{job_id}`
 - `POST /webhooks/zoho/site-and-password`
 - `POST /webhooks/zoho/site-workflow`
 
-The `site-workflow` path remains as a compatibility alias.
+The unversioned paths remain as compatibility aliases.
 
 ## Credential Modes
 
@@ -72,3 +82,5 @@ uvicorn workflow.api:app --host 127.0.0.1 --port 8100
 - Default suffix casing: uppercase
 - Default `workflow_mode`: `pdf_and_site`
 - If `credential_mode` is omitted, the workflow still infers generated vs predefined for backward compatibility
+- The FastAPI Swagger docs are available at `/docs`
+- The OpenAPI document is available at `/openapi.json`

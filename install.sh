@@ -598,8 +598,12 @@ print_summary() {
   if [[ -n "${PUBLIC_API_HOST}" ]]; then
     echo
     echo "Public base URL: https://${PUBLIC_API_HOST}"
-    echo "Workflow webhook: https://${PUBLIC_API_HOST}/webhooks/zoho/site-and-password"
-    echo "Workflow health:  https://${PUBLIC_API_HOST}/health"
+    echo "Docs:            https://${PUBLIC_API_HOST}/docs"
+    echo "OpenAPI JSON:    https://${PUBLIC_API_HOST}/openapi.json"
+    echo "Catalog:         https://${PUBLIC_API_HOST}/v1/system/catalog"
+    echo "Workflow webhook: https://${PUBLIC_API_HOST}/v1/site-and-password/webhooks/zoho"
+    echo "Workflow jobs:    https://${PUBLIC_API_HOST}/v1/site-and-password/jobs"
+    echo "Workflow health:  https://${PUBLIC_API_HOST}/v1/system/health"
     echo "PDF health:       https://${PUBLIC_API_HOST}/pdf/health"
     echo "Omada health:     https://${PUBLIC_API_HOST}/omada/api/health"
   fi

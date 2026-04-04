@@ -95,15 +95,39 @@ Purpose:
 
 With `SITE_AND_PASSWORD_API_HOST=api01.opticable.ca`, Caddy exposes:
 
-- `https://api01.opticable.ca/webhooks/zoho/site-and-password`
-- `https://api01.opticable.ca/health`
+- `https://api01.opticable.ca/`
+- `https://api01.opticable.ca/docs`
+- `https://api01.opticable.ca/openapi.json`
+- `https://api01.opticable.ca/v1/system/health`
+- `https://api01.opticable.ca/v1/system/catalog`
+- `https://api01.opticable.ca/v1/site-and-password/health`
+- `https://api01.opticable.ca/v1/site-and-password/jobs`
+- `https://api01.opticable.ca/v1/site-and-password/jobs/{job_id}`
+- `https://api01.opticable.ca/v1/site-and-password/webhooks/zoho`
 - `https://api01.opticable.ca/pdf/health`
 - `https://api01.opticable.ca/omada/api/health`
 - `https://api01.opticable.ca/workflow/health`
 
 The root host proxies to the workflow app by default, so Zoho can post directly to:
 
+- `https://api01.opticable.ca/v1/site-and-password/webhooks/zoho`
+
+Compatibility aliases still work:
+
 - `https://api01.opticable.ca/webhooks/zoho/site-and-password`
+- `https://api01.opticable.ca/webhooks/zoho/site-workflow`
+- `https://api01.opticable.ca/health`
+- `https://api01.opticable.ca/jobs/{job_id}`
+
+## API Documentation
+
+The public workflow service now exposes a real OpenAPI surface:
+
+- Swagger UI: `https://api01.opticable.ca/docs`
+- OpenAPI JSON: `https://api01.opticable.ca/openapi.json`
+- root platform index: `https://api01.opticable.ca/`
+
+This gives you one documented master API endpoint for current and future webhook-driven apps.
 
 ## Workflow Modes
 
