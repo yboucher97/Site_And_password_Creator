@@ -50,7 +50,7 @@ The unversioned paths and the older `/v1/site-and-password/*` paths remain as co
 
 - send unit numbers or identifiers
 - default SSID format is `APT_<unit>_<XX>`
-- passwords are generated automatically
+- passwords are generated automatically and exclude ambiguous letters like `i` and `l`
 
 `predefined`
 

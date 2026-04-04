@@ -89,6 +89,7 @@ Server-side normalization rules:
 - `Unit_s`, `Mots_de_passes`, `Mots_de_passes_2`, `ssid_list`, and similar fields can be arrays, CSV strings, semicolon-separated strings, or newline-separated strings
 - password list parts are concatenated in order, so `Mots_de_passes` and `Mots_de_passes_2` behave like one combined password list
 - if `Predfined` is `false`, the VM ignores incoming password fields and generates passwords in the format `####xx####$$`
+- generated password letters exclude ambiguous characters like `i` and `l`
 - if passwords are generated and a CRM record id is provided, the VM updates the `Fiches_Techniques` record:
   - `Mots_de_passes` gets up to the first 150 generated passwords
   - `MDP` gets any remaining generated passwords

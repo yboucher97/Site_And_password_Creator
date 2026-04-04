@@ -40,6 +40,7 @@ PASSWORD_SPECIALS_KEYS = ("password_specials", "PASSWORD_SPECIALS")
 WORKDRIVE_QUERY_KEYS = ("id", "folder_id", "resource_id", "parent_id")
 WORKFLOW_MODE_KEYS = ("workflow_mode", "Workflow_Mode")
 CREDENTIAL_MODE_KEYS = ("credential_mode", "Credential_Mode")
+SAFE_PASSWORD_LETTERS = "abcdefghjkmnopqrstuvwxyz"
 
 CredentialMode = Literal["generated", "predefined"]
 WorkflowMode = Literal["pdf_only", "pdf_and_site"]
@@ -236,7 +237,7 @@ def _generate_suffix(length: int) -> str:
 
 def _generate_password(specials: str) -> str:
     first_digits = "".join(secrets.choice(string.digits) for _ in range(4))
-    letters = "".join(secrets.choice(string.ascii_lowercase) for _ in range(2))
+    letters = "".join(secrets.choice(SAFE_PASSWORD_LETTERS) for _ in range(2))
     second_digits = "".join(secrets.choice(string.digits) for _ in range(4))
     special_pool = specials or "*!$@#"
     special_chars = "".join(secrets.choice(special_pool) for _ in range(2))

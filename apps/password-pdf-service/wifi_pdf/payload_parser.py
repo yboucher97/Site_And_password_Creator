@@ -36,6 +36,7 @@ PREDEFINED_KEYS = ("predefined", "Predefined", "Predfined", "predfined")
 WORKDRIVE_QUERY_KEYS = ("id", "folder_id", "resource_id", "parent_id")
 NUMERIC_IDENTIFIER_RE = re.compile(r"^\d+$")
 PASSWORD_SPECIALS = "*!$@#"
+SAFE_PASSWORD_LETTERS = "abcdefghjkmnopqrstuvwxyz"
 
 
 def _get_first(mapping: dict[str, Any], keys: tuple[str, ...]) -> Any:
@@ -182,7 +183,7 @@ def generate_suffix(length: int = 2) -> str:
 
 def generate_password() -> str:
     first_digits = "".join(secrets.choice(string.digits) for _ in range(4))
-    letters = "".join(secrets.choice(string.ascii_lowercase) for _ in range(2))
+    letters = "".join(secrets.choice(SAFE_PASSWORD_LETTERS) for _ in range(2))
     second_digits = "".join(secrets.choice(string.digits) for _ in range(4))
     specials = "".join(secrets.choice(PASSWORD_SPECIALS) for _ in range(2))
     return f"{first_digits}{letters}{second_digits}{specials}"
