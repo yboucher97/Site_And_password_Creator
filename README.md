@@ -1,10 +1,18 @@
 # Site And Password Creator
 
-This repository combines the three apps needed for the WiFi + Omada workflow on one machine:
+This repository is the monorepo for the Opticable API platform. It keeps one `main` branch and organizes the platform by service folders, not by branches or endpoints.
 
-- `apps/password-pdf-generator`
-- `apps/omada-site-creator`
-- `apps/site-and-password-workflow`
+Included services:
+
+- `apps/workflow-api`
+- `apps/password-pdf-service`
+- `apps/omada-site-service`
+
+Repository docs:
+
+- [Repository Structure](./docs/repository-structure.md)
+- [Architecture](./docs/architecture.md)
+- [Deploy Notes](./deploy/README.md)
 
 ## Install On One Linux VM
 
@@ -29,6 +37,12 @@ What it does:
   - `/etc/omada-site-creator.env`
   - `/etc/site-and-password-workflow.env`
 - optionally writes one master Caddy site if you provide `SITE_AND_PASSWORD_API_HOST`
+
+Runtime artifact names currently stay on the legacy service names for compatibility:
+
+- `password-pdf-generator`
+- `omada-site-creator`
+- `site-and-password-workflow`
 
 Important runtime paths:
 
@@ -66,9 +80,9 @@ Optional installer variables:
 
 ## Included Apps
 
-### Password PDF Generator
+### Password PDF Service
 
-Location: `apps/password-pdf-generator`
+Location: `apps/password-pdf-service`
 
 Purpose:
 
@@ -76,9 +90,9 @@ Purpose:
 - generate merged PDF, ZIP, and text exports
 - upload the output to Zoho WorkDrive
 
-### Omada Site Creator
+### Omada Site Service
 
-Location: `apps/omada-site-creator`
+Location: `apps/omada-site-service`
 
 Purpose:
 
@@ -86,9 +100,9 @@ Purpose:
 - authenticate to TP-Link Omada
 - create sites, LANs, WLAN groups, and SSIDs
 
-### Site And Password Workflow
+### Workflow API
 
-Location: `apps/site-and-password-workflow`
+Location: `apps/workflow-api`
 
 Purpose:
 
@@ -117,7 +131,7 @@ With `SITE_AND_PASSWORD_API_HOST=api01.opticable.ca`, Caddy exposes:
 - `https://api01.opticable.ca/omada/api/health`
 - `https://api01.opticable.ca/workflow/health`
 
-The root host proxies to the workflow app by default, so Zoho can post directly to:
+The root host proxies to the workflow API by default, so Zoho can post directly to:
 
 - `https://api01.opticable.ca/v1/site-and-password/webhooks/zoho`
 
@@ -165,6 +179,15 @@ Useful endpoints:
 - `GET /v1/integrations/zoho/oauth/status`
 
 The PDF service reads the shared Zoho credential file automatically, so new tokens are picked up on the next job without restarting the stack.
+
+## Monorepo Conventions
+
+- `main` is the source of truth
+- short-lived feature branches are for changes only, not for separating apps
+- each service lives under `apps/`
+- shared future code should live under `packages/`
+- deployment assets belong under `deploy/` or service-local `deploy/`
+- design and runbook docs belong under `docs/`
 
 ## Workflow Modes
 

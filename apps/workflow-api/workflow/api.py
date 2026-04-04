@@ -113,17 +113,17 @@ class ZohoOAuthCallbackResponse(BaseModel):
 def _service_catalog() -> list[ServiceRoute]:
     return [
         ServiceRoute(
-            name="site-and-password-workflow",
+            name="workflow-api",
             path_prefix="/v1/site-and-password",
             description="Primary public API for webhook intake, job creation, and workflow job status.",
         ),
         ServiceRoute(
-            name="password-pdf-generator",
+            name="password-pdf-service",
             path_prefix="/pdf",
             description="Raw internal PDF service proxied for health/debug access only.",
         ),
         ServiceRoute(
-            name="omada-site-creator",
+            name="omada-site-service",
             path_prefix="/omada",
             description="Raw internal Omada service proxied for health/debug access only.",
         ),
@@ -259,7 +259,7 @@ def _run_job(job_id: str, raw_payload: dict, batch) -> None:
 def _health_payload() -> HealthResponse:
     return HealthResponse(
         status="ok",
-        app="site-and-password-workflow",
+        app="workflow-api",
         version=API_VERSION,
         jobs_dir=str(settings.output.jobs_dir),
         pdf_base_url=settings.pdf.base_url,

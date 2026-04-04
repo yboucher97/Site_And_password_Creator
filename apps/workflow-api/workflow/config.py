@@ -107,7 +107,7 @@ def load_settings() -> AppSettings:
     zoho_client_secret = os.getenv("ZOHO_OAUTH_CLIENT_SECRET")
     zoho_redirect_uri = os.getenv("ZOHO_OAUTH_REDIRECT_URI")
     zoho_accounts_base_url = os.getenv("ZOHO_OAUTH_ACCOUNTS_BASE_URL", "https://accounts.zoho.com").rstrip("/")
-    zoho_state_secret = os.getenv("ZOHO_OAUTH_STATE_SECRET") or api_key_value or "site-and-password-workflow"
+    zoho_state_secret = os.getenv("ZOHO_OAUTH_STATE_SECRET") or api_key_value or "workflow-api"
 
     return AppSettings(
         api=ApiSettings(

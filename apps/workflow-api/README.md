@@ -1,9 +1,9 @@
-# Site And Password Workflow
+# Workflow API
 
 This app is the orchestration layer inside the monorepo. It sits in front of:
 
-- `apps/password-pdf-generator`
-- `apps/omada-site-creator`
+- `apps/password-pdf-service`
+- `apps/omada-site-service`
 
 ## Flow
 
