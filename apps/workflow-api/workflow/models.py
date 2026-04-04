@@ -32,6 +32,7 @@ SITE_NAME_KEYS = ("site_name", "Site_Name", "omada_site_name")
 REGION_KEYS = ("omada_region", "region", "Region")
 TIMEZONE_KEYS = ("omada_timezone", "timezone", "Timezone")
 SCENARIO_KEYS = ("omada_scenario", "scenario", "Scenario")
+OMADA_OPERATION_KEYS = ("omada_operation", "omada_mutation_mode", "Omada_Operation", "Omada_Mutation_Mode")
 HIDDEN_KEYS = ("hidden", "Hidden")
 SSID_PREFIX_KEYS = ("ssid_prefix", "SSID_Prefix")
 SSID_TEMPLATE_KEYS = ("ssid_template", "SSID_Template")
@@ -44,6 +45,7 @@ SAFE_PASSWORD_LETTERS = "abcdefghjkmnopqrstuvwxyz"
 
 CredentialMode = Literal["generated", "predefined"]
 WorkflowMode = Literal["pdf_only", "pdf_and_site", "site_only"]
+OmadaOperation = Literal["ensure", "create", "upsert", "update"]
 
 
 class WorkflowRecord(BaseModel):
@@ -105,6 +107,7 @@ class WorkflowBatchRequest(BaseModel):
     omada_region: str | None = None
     omada_timezone: str | None = None
     omada_scenario: str | None = None
+    omada_operation: OmadaOperation = "ensure"
     records: list[WorkflowRecord] = Field(min_length=1)
 
     @field_validator("building_name")
@@ -124,6 +127,7 @@ class WorkflowBatchRequest(BaseModel):
         "omada_region",
         "omada_timezone",
         "omada_scenario",
+        "omada_operation",
     )
     @classmethod
     def normalize_optional_text(cls, value: str | None) -> str | None:
@@ -218,6 +222,17 @@ def _parse_requested_credential_mode(value: Any) -> CredentialMode | None:
     normalized = text.strip().lower().replace("-", "_").replace(" ", "_")
     if normalized not in {"generated", "predefined"}:
         raise ValueError("credential_mode must be 'generated' or 'predefined'.")
+    return normalized  # type: ignore[return-value]
+
+
+def _parse_omada_operation(value: Any) -> OmadaOperation:
+    text = clean_scalar(value)
+    if text is None:
+        return "ensure"
+
+    normalized = text.strip().lower().replace("-", "_").replace(" ", "_")
+    if normalized not in {"ensure", "create", "upsert", "update"}:
+        raise ValueError("omada_operation must be 'ensure', 'create', 'upsert', or 'update'.")
     return normalized  # type: ignore[return-value]
 
 
@@ -436,6 +451,7 @@ def parse_payload(raw_payload: Any, settings: AppSettings) -> WorkflowBatchReque
     omada_region = clean_scalar(get_first(payload, REGION_KEYS))
     omada_timezone = clean_scalar(get_first(payload, TIMEZONE_KEYS))
     omada_scenario = clean_scalar(get_first(payload, SCENARIO_KEYS))
+    omada_operation = _parse_omada_operation(get_first(payload, OMADA_OPERATION_KEYS))
     default_hidden = _parse_bool_flag(get_first(payload, HIDDEN_KEYS)) or False
     workflow_mode = _parse_workflow_mode(get_first(payload, WORKFLOW_MODE_KEYS))
     requested_credential_mode = _parse_requested_credential_mode(get_first(payload, CREDENTIAL_MODE_KEYS))
@@ -555,6 +571,7 @@ def parse_payload(raw_payload: Any, settings: AppSettings) -> WorkflowBatchReque
             "omada_region": omada_region,
             "omada_timezone": omada_timezone,
             "omada_scenario": omada_scenario,
+            "omada_operation": omada_operation,
             "records": normalized_records,
         }
     )

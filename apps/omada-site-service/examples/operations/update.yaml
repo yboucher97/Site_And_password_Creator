@@ -13,6 +13,7 @@ execution:
   stopOnError: true
   screenshots: true
   dryRun: true
+  mutationMode: update
 
 sites:
   - name: Building-Update-Example

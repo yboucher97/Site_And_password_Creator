@@ -12,6 +12,7 @@ execution:
   stopOnError: true
   screenshots: true
   dryRun: false
+  mutationMode: create
 
 sites:
   - name: Building-Create-Example

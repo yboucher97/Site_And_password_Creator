@@ -7,11 +7,10 @@ from typing import Any, Literal
 import yaml
 
 from .config import AppSettings
-from .models import WorkflowBatchRequest, WorkflowRecord
+from .models import OmadaOperation, WorkflowBatchRequest, WorkflowRecord
 from .omada_plan import build_omada_plan
 from .workdrive import WorkflowWorkDriveClient, WorkflowWorkDriveError
 
-OmadaOperation = Literal["create", "upsert", "update", "get"]
 SourcePreference = Literal["yaml_then_txt", "yaml_only", "txt_only"]
 ResolvedSourceType = Literal["yaml", "txt"]
 
@@ -73,6 +72,7 @@ def resolve_workdrive_execution_source(
             raise ValueError(f"WorkDrive YAML '{artifact.file_name}' could not be parsed: {exc}") from exc
         if not isinstance(plan_dict, dict):
             raise ValueError(f"WorkDrive YAML '{artifact.file_name}' must contain a YAML object at the root.")
+        _set_plan_mutation_mode(plan_dict, operation)
 
         resolved_site_name = (
             site_name
@@ -115,6 +115,7 @@ def resolve_workdrive_execution_source(
         records=records,
     )
     plan_dict = build_omada_plan(batch, settings)
+    _set_plan_mutation_mode(plan_dict, operation)
     plan_text = yaml.safe_dump(plan_dict, sort_keys=False, allow_unicode=False)
 
     return ResolvedOmadaExecutionSource(
@@ -284,3 +285,11 @@ def _extract_yaml_site_name(plan_dict: dict[str, Any]) -> str | None:
         return None
     name = first_site.get("name")
     return str(name).strip() if name else None
+
+
+def _set_plan_mutation_mode(plan_dict: dict[str, Any], operation: OmadaOperation) -> None:
+    execution = plan_dict.get("execution")
+    if not isinstance(execution, dict):
+        execution = {}
+        plan_dict["execution"] = execution
+    execution["mutationMode"] = operation

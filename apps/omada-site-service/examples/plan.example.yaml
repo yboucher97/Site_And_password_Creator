@@ -12,6 +12,7 @@ controller:
 execution:
   stopOnError: true
   screenshots: true
+  mutationMode: ensure
 
 sites:
   - name: Store-001

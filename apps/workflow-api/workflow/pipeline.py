@@ -74,6 +74,7 @@ class SiteWorkflowPipeline:
             "record_count": len(batch.records),
             "credential_mode": batch.credential_mode,
             "workflow_mode": batch.workflow_mode,
+            "omada_operation": batch.omada_operation,
             "pdf_job_id": pdf_job_id,
             "omada_job_id": omada_job_id,
             "raw_payload_path": str(raw_payload_path),

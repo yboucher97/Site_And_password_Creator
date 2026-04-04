@@ -68,6 +68,7 @@ def build_omada_plan(batch: WorkflowBatchRequest, settings: AppSettings) -> dict
             "stopOnError": True,
             "screenshots": True,
             "dryRun": False,
+            "mutationMode": batch.omada_operation,
         },
         "sites": [site],
     }

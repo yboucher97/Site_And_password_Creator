@@ -25,7 +25,7 @@ from .zoho_oauth import ZohoOAuthManager
 settings = load_settings()
 logger = configure_logging(ensure_directory(settings.output.root_dir / "logs"))
 job_store = JobStore(settings.output.jobs_dir, logger)
-API_VERSION = "1.3.0"
+API_VERSION = "1.4.0"
 PRIMARY_WEBHOOK_PATH = "/v1/site-and-password/webhooks/zoho"
 PRIMARY_JOB_CREATE_PATH = "/v1/site-and-password/jobs"
 PRIMARY_JOB_STATUS_PATH = "/v1/site-and-password/jobs/{job_id}"
@@ -70,6 +70,7 @@ class WorkflowJobAcceptedResponse(BaseModel):
     record_count: int
     credential_mode: str
     workflow_mode: str
+    omada_operation: str
     job_status_url: str
 
 
@@ -265,6 +266,7 @@ WORKFLOW_PAYLOAD_EXAMPLES = {
             "building_name": "123 Main Street",
             "credential_mode": "generated",
             "workflow_mode": "pdf_and_site",
+            "omada_operation": "ensure",
             "template_name": "Opticable_Template_01",
             "workdrive_folder_id": "replace-with-workdrive-folder-id",
             "site_name": "123 Main Street",
@@ -277,6 +279,7 @@ WORKFLOW_PAYLOAD_EXAMPLES = {
             "building_name": "456 Example Avenue",
             "credential_mode": "generated",
             "workflow_mode": "pdf_only",
+            "omada_operation": "ensure",
             "template_name": "Opticable_Template_01",
             "units": ["201", "202"],
         },
@@ -287,6 +290,7 @@ WORKFLOW_PAYLOAD_EXAMPLES = {
             "building_name": "789 Sample Road",
             "credential_mode": "predefined",
             "workflow_mode": "pdf_only",
+            "omada_operation": "ensure",
             "template_name": "Opticable_Template_01",
             "ssids": ["APT_301_AA", "APT_302_BB"],
             "passwords": ["1234ab5678!@", "5678cd1234#$"],
@@ -299,9 +303,23 @@ WORKFLOW_PAYLOAD_EXAMPLES = {
             "site_name": "Standalone Site Template",
             "credential_mode": "predefined",
             "workflow_mode": "site_only",
+            "omada_operation": "create",
             "template_name": "Opticable_Template_01",
             "ssids": ["APT_401_AA", "APT_402_BB"],
             "passwords": ["1234ab5678!@", "5678cd1234#$"],
+        },
+    },
+    "generated_password_rotation_update": {
+        "summary": "Generate fresh passwords, upload artifacts, then update existing Omada SSIDs",
+        "value": {
+            "building_name": "Existing Building",
+            "site_name": "Existing Building",
+            "credential_mode": "generated",
+            "workflow_mode": "pdf_and_site",
+            "omada_operation": "update",
+            "template_name": "Opticable_Template_01",
+            "workdrive_folder_id": "replace-with-workdrive-folder-id",
+            "units": ["101", "102", "103"],
         },
     },
 }
@@ -328,6 +346,16 @@ OMADA_WORKDRIVE_JOB_EXAMPLES = {
             "source_preference": "yaml_then_txt",
             "site_name": "456 Example Avenue",
             "building_name": "456 Example Avenue",
+        },
+    },
+    "yaml_update_existing": {
+        "summary": "Update an existing site from update.yaml or TXT fallback",
+        "value": {
+            "workdrive_folder_id": "replace-with-workdrive-folder-id",
+            "operation": "update",
+            "source_preference": "yaml_then_txt",
+            "site_name": "Existing Building",
+            "building_name": "Existing Building",
         },
     },
 }
@@ -592,12 +620,6 @@ async def omada_create_job_from_workdrive(
 ) -> OmadaWorkDriveJobAcceptedResponse:
     _validate_api_key(x_api_key)
 
-    if payload.operation == "update":
-        raise HTTPException(
-            status_code=501,
-            detail="Operation 'update' is planned but not implemented yet. Current Omada execution is create/ensure-only.",
-        )
-
     workdrive_client = WorkflowWorkDriveClient(settings.zoho_oauth, logger)
     try:
         resolved = resolve_workdrive_execution_source(
@@ -748,6 +770,7 @@ def _create_job_from_payload(payload: dict[str, Any]) -> WorkflowJobAcceptedResp
             "record_count": len(batch.records),
             "credential_mode": batch.credential_mode,
             "workflow_mode": batch.workflow_mode,
+            "omada_operation": batch.omada_operation,
             "template_name": batch.template_name,
             "site_name": batch.site_name or batch.building_name,
         },
@@ -763,6 +786,7 @@ def _create_job_from_payload(payload: dict[str, Any]) -> WorkflowJobAcceptedResp
         record_count=len(batch.records),
         credential_mode=batch.credential_mode,
         workflow_mode=batch.workflow_mode,
+        omada_operation=batch.omada_operation,
         job_status_url=WORKFLOW_CANONICAL_JOB_STATUS_PATH.replace("{job_id}", job_id),
     )
 

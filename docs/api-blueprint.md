@@ -164,6 +164,13 @@ If Zoho sends one payload with units or credentials, the correct public entrypoi
 
 - `POST /v1/workflows/site-and-password`
 
+That workflow payload can still choose the Omada mutation intent explicitly, for example:
+
+- `omada_operation: ensure`
+- `omada_operation: create`
+- `omada_operation: upsert`
+- `omada_operation: update`
+
 Internally, that workflow may call:
 
 - password generation logic

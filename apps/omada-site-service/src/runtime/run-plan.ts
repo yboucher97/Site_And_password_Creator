@@ -2,7 +2,7 @@ import { mkdir } from "node:fs/promises";
 import { basename } from "node:path";
 
 import { loadPlanFromPath, summarizePlan } from "../config/load-plan";
-import type { OmadaPlan, OmadaSite, OmadaSsid, OmadaWlanGroup } from "../config/schema";
+import type { OmadaMutationMode, OmadaPlan, OmadaSite, OmadaSsid, OmadaWlanGroup } from "../config/schema";
 import { OmadaPortal } from "../omada/portal";
 import { withAuthenticatedSession } from "../omada/session";
 import { ensureRuntimeDirs } from "./paths";
@@ -45,9 +45,9 @@ async function applySsid(
       reporter,
       "ssid",
       `${site.name}/${group.name}/${ssid.name}`,
-      "ensureSsid",
+      "applySsid",
       async () => {
-        await portal.ensureSsid(group, ssid);
+        await portal.ensureSsidWithMode(group, ssid, resolveMutationMode(plan));
       },
     );
   } catch (error) {
@@ -56,6 +56,10 @@ async function applySsid(
     }
     reporter.log("warning", `Continuing after SSID failure: ${String(error)}`);
   }
+}
+
+function resolveMutationMode(plan: OmadaPlan): OmadaMutationMode {
+  return plan.execution.mutationMode ?? "ensure";
 }
 
 function resolveSsidWithSequentialVlan(site: OmadaSite, ssid: OmadaSsid, sequentialIndex: number): OmadaSsid {
@@ -84,13 +88,14 @@ async function applySite(
   plan: OmadaPlan,
   site: OmadaSite,
 ): Promise<void> {
+  const mutationMode = resolveMutationMode(plan);
   await withStep(
     reporter,
     "site",
     site.name,
-    "ensureSite",
+    "applySite",
     async () => {
-      await portal.ensureSite(site);
+      await portal.ensureSiteWithMode(site, mutationMode);
     },
   );
 
@@ -114,9 +119,9 @@ async function applySite(
         reporter,
         "lan",
         `${site.name}/${lan.name ?? lan.vlanId}`,
-        "ensureLan",
+        "applyLan",
         async () => {
-          await portal.ensureLan(lan);
+          await portal.ensureLanWithMode(lan, mutationMode);
         },
       );
     } catch (error) {
@@ -134,9 +139,9 @@ async function applySite(
         reporter,
         "wlanGroup",
         `${site.name}/${group.name}`,
-        "ensureWlanGroup",
+        "applyWlanGroup",
         async () => {
-          await portal.ensureWlanGroup(group);
+          await portal.ensureWlanGroupWithMode(group, mutationMode);
         },
       );
     } catch (error) {

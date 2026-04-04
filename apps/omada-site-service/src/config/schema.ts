@@ -16,6 +16,8 @@ export const cloudAccountSchema = z.object({
   password: z.string().min(1).max(256),
 });
 
+export const mutationModeSchema = z.enum(["ensure", "create", "upsert", "update"]);
+
 export const lanSchema = z.object({
   name: z.string().min(1).optional(),
   purpose: z.enum(["corporate", "guest", "voice", "management"]).default("corporate"),
@@ -61,6 +63,7 @@ export const executionSchema = z.object({
   stopOnError: z.boolean().default(true),
   screenshots: z.boolean().default(true),
   dryRun: z.boolean().default(false),
+  mutationMode: mutationModeSchema.default("ensure"),
 });
 
 export const planSchema = z.object({
@@ -70,6 +73,7 @@ export const planSchema = z.object({
     stopOnError: true,
     screenshots: true,
     dryRun: false,
+    mutationMode: "ensure",
   }),
   sites: z.array(siteSchema).min(1),
 });
@@ -79,6 +83,7 @@ export type OmadaSite = z.infer<typeof siteSchema>;
 export type OmadaLan = z.infer<typeof lanSchema>;
 export type OmadaWlanGroup = z.infer<typeof wlanGroupSchema>;
 export type OmadaSsid = z.infer<typeof ssidSchema>;
+export type OmadaMutationMode = z.infer<typeof mutationModeSchema>;
 
 export function formatValidationError(error: unknown): string {
   if (!(error instanceof z.ZodError)) {

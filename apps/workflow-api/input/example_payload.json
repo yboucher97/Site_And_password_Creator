@@ -2,6 +2,7 @@
   "building_name": "Workflow Demo Building",
   "credential_mode": "generated",
   "workflow_mode": "pdf_and_site",
+  "omada_operation": "ensure",
   "city": "Montreal",
   "workdrive_folder_id": "replace-with-workdrive-folder-id",
   "template_name": "Opticable_Template_01",

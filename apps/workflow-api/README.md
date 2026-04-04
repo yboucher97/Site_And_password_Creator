@@ -74,9 +74,6 @@ Supported operation values today:
 
 - `create`
 - `upsert`
-
-Reserved for the next Omada engine increment:
-
 - `update`
 
 Live reads:
@@ -122,23 +119,47 @@ Live reads:
 - upload `omada-plan.yaml` to WorkDrive when `workdrive_folder_id` is provided
 - create the Omada site directly
 
+## Omada Operation Flag
+
+Workflow payloads can also choose the Omada mutation intent:
+
+- `omada_operation: ensure`
+- `omada_operation: create`
+- `omada_operation: upsert`
+- `omada_operation: update`
+
+Practical examples:
+
+- new-site rollout with safe reuse of missing pieces: `omada_operation=upsert`
+- password rotation on an existing site: `omada_operation=update`
+
 ## Current Omada Mutation Behavior
 
-Today the Omada service is still `ensure/create-only`:
+The Omada service now supports four mutation styles at the plan level:
 
-- if a site does not exist, it is created
-- if a LAN does not exist, it is created
-- if a WLAN group does not exist, it is created
-- if an SSID does not exist, it is created
-- if an item already exists, it is left unchanged
+- `ensure`
+- `create`
+- `upsert`
+- `update`
 
-That means true in-place update behavior for existing VLANs, WLAN groups, and SSIDs is not implemented yet.
+What is implemented today:
+
+- sites can be required to exist, created, or reused depending on mutation mode
+- LANs can be created when missing
+- WLAN groups can be created when missing
+- existing SSIDs can be updated in place for password, hide flag, and VLAN binding
+- `update` fails if the required site, LAN, WLAN group, or SSID does not already exist
+
+Current limitation:
+
+- structural LAN mutation is still conservative
+- WLAN-group renaming is not implemented
+- if an existing LAN conflicts with the desired definition, the run fails instead of silently mutating it
 
 For AP assignment safety:
 
-- creating or updating inside the same existing WLAN group is the correct future approach
+- updating inside the same existing WLAN group is the correct approach
 - deleting and recreating WLAN groups would risk changing AP assignment behavior
-- the next safe increment is an explicit update policy per object, not implicit overwrite
 
 ## Zoho OAuth
 

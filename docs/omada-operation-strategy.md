@@ -52,11 +52,11 @@ TXT fallback:
 Current public routes:
 
 - `POST /v1/omada/jobs`
-  Raw YAML/JSON Omada plan execution
+  Raw YAML or JSON Omada plan execution
 - `GET /v1/omada/jobs/{jobId}`
   Omada job tracking
 - `POST /v1/omada/workdrive/jobs`
-  Resolve WorkDrive folder, use YAML first, TXT second
+  Resolve a WorkDrive folder, use YAML first, TXT second
 - `GET /v1/omada/sites/{siteId}/snapshot`
   Export live Omada state as JSON or YAML
 
@@ -67,18 +67,27 @@ Current public routes:
 - intended for a brand new site or a brand new batch of objects
 - if the folder already contains `create.yaml`, prefer it
 - if only TXT exists, generate a `create.yaml` plan from the TXT export
+- if the site or SSID already exists, the run fails
 
 `upsert`
 
-- intended for “create missing, reuse existing”
-- today this maps cleanly to the current Omada ensure/create engine
+- intended for "create missing, update what already exists where safe"
+- today this creates missing sites, LANs, WLAN groups, and SSIDs
+- today this also updates existing SSIDs in place
 - if TXT is the fallback source, generate `upsert.yaml`
 
 `update`
 
-- reserved for future in-place mutation of existing VLANs, WLAN groups, and SSIDs
-- should preserve AP assignment by updating inside the existing WLAN group instead of deleting/recreating it
-- today this should be treated as contract-only, not as live execution behavior
+- intended for strict in-place mutation of an existing site
+- today this updates existing SSIDs in place
+- today this fails if the site, LAN, WLAN group, or SSID is missing
+- this preserves AP assignment by updating inside the existing WLAN group instead of deleting and recreating it
+
+Current conservative limits:
+
+- structural LAN mutation is not implemented
+- WLAN-group renaming is not implemented
+- if an existing LAN conflicts with the desired definition, the run fails instead of silently mutating it
 
 `get`
 
@@ -116,9 +125,15 @@ Example:
 }
 ```
 
-For workflow-style PDF generation plus site creation, continue using:
+For workflow-style PDF generation plus site creation or password rotation, continue using:
 
 - `POST /v1/workflows/site-and-password`
+
+Recommended workflow flags:
+
+- `workflow_mode`
+- `credential_mode`
+- `omada_operation`
 
 That route remains the right choice for multi-step automation.
 
@@ -129,4 +144,4 @@ That route remains the right choice for multi-step automation.
 - explicit operation type instead of hidden inference
 - YAML files for human review and re-use
 - TXT fallback keeps old jobs usable even when YAML is missing
-- live snapshot gives you a stable read contract before true update mode lands
+- live snapshots give you a stable read contract before broader update coverage lands

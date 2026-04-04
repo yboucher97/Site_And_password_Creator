@@ -220,6 +220,7 @@ Supported webhook flags:
 
 - `credential_mode: generated | predefined`
 - `workflow_mode: pdf_only | pdf_and_site | site_only`
+- `omada_operation: ensure | create | upsert | update`
 
 `generated`:
 
@@ -255,20 +256,24 @@ Supported webhook flags:
 
 ## Current Omada Update Behavior
 
-Current Omada execution is create/ensure-only:
+Current Omada execution supports:
 
-- existing sites are reused
-- existing VLAN/LAN objects are left unchanged
-- existing WLAN groups are left unchanged
-- existing SSIDs are left unchanged
+- `ensure`
+- `create`
+- `upsert`
+- `update`
 
-So site modification and in-place SSID/VLAN updates are the next feature, not part of the current implementation.
+What works today:
 
-For that reason:
+- existing SSIDs can be updated in place
+- new SSIDs, WLAN groups, and LANs can be created when allowed by the mutation mode
+- password rotation can be done by generating new passwords and using `omada_operation=update`
 
-- `create` and `upsert` are supported today
-- `update` is documented as the target contract, but not executed yet
-- live snapshots should be used to review the controller state before future update work
+Still conservative today:
+
+- if an existing LAN conflicts with the desired definition, the run fails
+- WLAN-group renaming is not implemented
+- live snapshots should still be used to review the controller state before larger update work
 
 That is intentional for now, because keeping an SSID inside the same existing WLAN group is the safe way to preserve AP assignment. The next build step should add explicit update modes instead of silent overwrite behavior.
 

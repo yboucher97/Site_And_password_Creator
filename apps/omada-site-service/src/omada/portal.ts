@@ -1,6 +1,6 @@
 import type { Frame, Locator, Page } from "playwright";
 
-import type { OmadaLan, OmadaPlan, OmadaSite, OmadaSsid, OmadaWlanGroup } from "../config/schema";
+import type { OmadaLan, OmadaMutationMode, OmadaPlan, OmadaSite, OmadaSsid, OmadaWlanGroup } from "../config/schema";
 import type { RunReporter } from "../runtime/report";
 import { clickFirstVisible, escapeRegex, fillFirstVisible, findFirstVisible, type QueryRoot } from "./locators";
 
@@ -143,16 +143,7 @@ export class OmadaPortal {
   }
 
   public async ensureSite(site: OmadaSite): Promise<void> {
-    await this.goToSitesSection();
-
-    if (await this.findSiteByName(site.name)) {
-      this.reporter.log("info", `Site "${site.name}" already exists. Skipping site creation.`);
-      return;
-    }
-
-    const createdSiteId = await this.createSiteViaApi(site);
-    this.reporter.log("success", `Created site "${site.name}" via the authenticated Essentials controller API (${createdSiteId}).`);
-    await this.waitForSiteInControllerApi(site.name, 30000);
+    await this.ensureSiteWithMode(site, "ensure");
   }
 
   public async openSite(siteName: string): Promise<void> {
@@ -168,33 +159,92 @@ export class OmadaPortal {
   }
 
   public async ensureLan(lan: OmadaLan): Promise<void> {
+    await this.ensureLanWithMode(lan, "ensure");
+  }
+
+  public async ensureWlanGroup(group: OmadaWlanGroup): Promise<void> {
+    await this.ensureWlanGroupWithMode(group, "ensure");
+  }
+
+  public async ensureSsid(group: OmadaWlanGroup, ssid: OmadaSsid): Promise<void> {
+    await this.ensureSsidWithMode(group, ssid, "ensure");
+  }
+
+  public async ensureSiteWithMode(site: OmadaSite, mutationMode: OmadaMutationMode): Promise<void> {
+    await this.goToSitesSection();
+
+    const existingSite = await this.findSiteByName(site.name);
+    if (existingSite) {
+      if (mutationMode === "create") {
+        throw new Error(`Site "${site.name}" already exists, but mutationMode=create requires a new site.`);
+      }
+      this.reporter.log("info", `Site "${site.name}" already exists. Reusing it for mutationMode=${mutationMode}.`);
+      return;
+    }
+
+    if (mutationMode === "update") {
+      throw new Error(`Site "${site.name}" does not exist, but mutationMode=update requires an existing site.`);
+    }
+
+    const createdSiteId = await this.createSiteViaApi(site);
+    this.reporter.log("success", `Created site "${site.name}" via the authenticated Essentials controller API (${createdSiteId}).`);
+    await this.waitForSiteInControllerApi(site.name, 30000);
+  }
+
+  public async ensureLanWithMode(lan: OmadaLan, mutationMode: OmadaMutationMode): Promise<void> {
     const siteId = this.requireCurrentSiteId();
     const lanName = lan.name?.trim() ? lan.name.trim() : String(lan.vlanId);
     const existingLan = await this.findLanByNameOrVlan(siteId, lanName, lan.vlanId);
 
     if (existingLan) {
-      this.reporter.log("info", `LAN "${lanName}" already exists. Skipping LAN creation.`);
+      if (mutationMode === "create") {
+        throw new Error(`LAN "${lanName}" already exists, but mutationMode=create requires a new LAN.`);
+      }
+
+      if (mutationMode === "update" || mutationMode === "upsert") {
+        const sameName = existingLan.name.toLowerCase() === lanName.toLowerCase();
+        const sameVlan = existingLan.vlan === lan.vlanId;
+        if (!sameName || !sameVlan) {
+          throw new Error(
+            `LAN "${lanName}" matched an existing LAN (${existingLan.name}, VLAN ${existingLan.vlan}), but in-place LAN mutation is not implemented yet.`,
+          );
+        }
+      }
+
+      this.reporter.log("info", `LAN "${lanName}" already exists. Reusing it for mutationMode=${mutationMode}.`);
       return;
+    }
+
+    if (mutationMode === "update") {
+      throw new Error(`LAN "${lanName}" does not exist, but mutationMode=update requires an existing LAN.`);
     }
 
     await this.createLanViaApi(siteId, lanName, lan.vlanId);
     this.reporter.log("success", `Created LAN "${lanName}" on VLAN ${lan.vlanId}.`);
   }
 
-  public async ensureWlanGroup(group: OmadaWlanGroup): Promise<void> {
+  public async ensureWlanGroupWithMode(group: OmadaWlanGroup, mutationMode: OmadaMutationMode): Promise<void> {
     const siteId = this.requireCurrentSiteId();
     const existingGroup = await this.findWlanGroupByName(siteId, group.name);
 
     if (existingGroup) {
-      this.reporter.log("info", `WLAN group "${group.name}" already exists. Skipping WLAN group creation.`);
+      if (mutationMode === "create") {
+        throw new Error(`WLAN group "${group.name}" already exists, but mutationMode=create requires a new WLAN group.`);
+      }
+
+      this.reporter.log("info", `WLAN group "${group.name}" already exists. Reusing it for mutationMode=${mutationMode}.`);
       return;
+    }
+
+    if (mutationMode === "update") {
+      throw new Error(`WLAN group "${group.name}" does not exist, but mutationMode=update requires an existing WLAN group.`);
     }
 
     await this.createWlanGroupViaApi(siteId, group.name);
     this.reporter.log("success", `Created WLAN group "${group.name}".`);
   }
 
-  public async ensureSsid(group: OmadaWlanGroup, ssid: OmadaSsid): Promise<void> {
+  public async ensureSsidWithMode(group: OmadaWlanGroup, ssid: OmadaSsid, mutationMode: OmadaMutationMode): Promise<void> {
     const siteId = this.requireCurrentSiteId();
     const wlanGroup = await this.findWlanGroupByName(siteId, group.name);
     if (!wlanGroup) {
@@ -203,8 +253,22 @@ export class OmadaPortal {
 
     const existingSsid = await this.findSsidByName(siteId, wlanGroup.id, ssid.name);
     if (existingSsid) {
-      this.reporter.log("info", `SSID "${ssid.name}" already exists. Skipping SSID creation.`);
+      if (mutationMode === "create") {
+        throw new Error(`SSID "${ssid.name}" already exists, but mutationMode=create requires a new SSID.`);
+      }
+
+      if (mutationMode === "ensure") {
+        this.reporter.log("info", `SSID "${ssid.name}" already exists. Skipping SSID creation.`);
+        return;
+      }
+
+      await this.updateSsidViaApi(siteId, wlanGroup.id, existingSsid.id, ssid);
+      this.reporter.log("success", `Updated SSID "${ssid.name}" in WLAN group "${group.name}".`);
       return;
+    }
+
+    if (mutationMode === "update") {
+      throw new Error(`SSID "${ssid.name}" does not exist, but mutationMode=update requires an existing SSID.`);
     }
 
     const payload = await this.buildSsidPayload(siteId, ssid);
@@ -593,6 +657,18 @@ export class OmadaPortal {
     return ssids.find((entry) => entry.name.toLowerCase() === name.toLowerCase()) ?? null;
   }
 
+  private async updateSsidViaApi(siteId: string, wlanId: string, ssidId: string, ssid: OmadaSsid): Promise<void> {
+    const payload = await this.buildSsidPayload(siteId, ssid);
+    const response = await this.callControllerApi<undefined>(`/api/v2/sites/${siteId}/setting/wlans/${wlanId}/ssids/${ssidId}`, {
+      method: "PATCH",
+      body: payload,
+    });
+
+    if (response.errorCode !== 0) {
+      throw new Error(`Modify SSID failed for "${ssid.name}": ${response.msg ?? "Unknown controller error."}`);
+    }
+  }
+
   private async getDefaultRateLimitProfileId(siteId: string): Promise<string> {
     const cached = this.defaultRateLimitProfileIds.get(siteId);
     if (cached) {
@@ -718,7 +794,7 @@ export class OmadaPortal {
 
   private async callControllerApi<T>(
     path: string,
-    options: { method?: "GET" | "POST"; body?: unknown } = {},
+    options: { method?: "GET" | "POST" | "PATCH"; body?: unknown } = {},
   ): Promise<ControllerApiEnvelope<T>> {
     const frame = await this.waitForAppFrame(undefined, 15000);
     const response = await frame.evaluate(async ({ path, method, body }) => {
