@@ -2,6 +2,8 @@
 
 This handbook shows how to call the Opticable API Platform from Zoho Deluge.
 
+For the CRM and business-process design that should wrap these API calls, see [zoho-operating-model.md](./zoho-operating-model.md).
+
 Current public base URL:
 
 - `https://api01.opticable.ca`
