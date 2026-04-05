@@ -671,3 +671,555 @@ Best stable design:
 - move scheduling/dispatch into FSM when field work becomes busy
 
 That is cleaner, more integrated, and more scalable than trying to make one Deal record hold the entire lifetime of the site.
+
+## 12. What To Build First In CRM
+
+Build this in order.
+
+### Step 1: Standard modules to keep
+
+Keep and actively use:
+
+- `Leads`
+- `Accounts`
+- `Contacts`
+- `Deals`
+- `Quotes`
+- `Tasks`
+- `Calls`
+- `Meetings`
+
+### Step 2: Custom modules to create
+
+Create these custom modules first:
+
+- `Sites`
+- `Site Units`
+- `Installations`
+
+If you want a place for post-signoff commercial change requests later, add:
+
+- `Service Changes`
+
+### Step 3: Critical fields in `Deals`
+
+Create or confirm these fields:
+
+- `Deal_Type`
+- `Service_Type`
+- `Client_Type`
+- `Quoted_Units`
+- `Contract_Status`
+- `Quote_Status`
+- `Sign_Request_Id`
+- `Primary_WorkDrive_Folder_Id`
+- `Primary_Site_Count`
+- `Won_Date`
+
+### Step 4: Critical fields in `Sites`
+
+Create these fields:
+
+- `Site_Name`
+- `Building_Name`
+- `Street_Address`
+- `City`
+- `Province`
+- `Postal_Code`
+- `Country`
+- `Linked_Deal`
+- `Linked_Account`
+- `Primary_Contact`
+- `Service_Type`
+- `Client_Type`
+- `Implementation_Stage`
+- `Operational_Status`
+- `WorkDrive_Folder_Id`
+- `Current_Document_Folder_Link`
+- `Zoho_Sign_Status`
+- `Omada_Site_Id`
+- `Last_Omada_Operation`
+- `Last_Workflow_Job_Id`
+- `Last_Omada_Job_Id`
+- `Live_Site_Yaml_Link`
+- `Activation_Date`
+- `Billing_Status`
+- `Billing_Customer_Id`
+- `Billing_Subscription_Id`
+- `Desk_Enabled`
+
+### Step 5: Critical fields in `Site Units`
+
+Create these fields:
+
+- `Linked_Site`
+- `Unit_Label`
+- `SSID`
+- `Password`
+- `VLAN`
+- `Hidden`
+- `Credential_Source`
+- `Provisioning_Status`
+- `Last_Generated_At`
+- `Last_Applied_At`
+- `Active`
+
+### Step 6: Critical fields in `Installations`
+
+Create these fields:
+
+- `Linked_Site`
+- `Installation_Type`
+- `Scheduled_Date`
+- `Assigned_Technician`
+- `Installation_Status`
+- `Technician_Notes`
+- `Completion_Proof_Link`
+- `Completed_At`
+
+## 13. Which Automation Tool To Use
+
+Use the simplest tool that is stable for the job.
+
+### Use CRM Workflow Rules when
+
+- the trigger starts from a CRM record create/edit
+- the criteria are easy to describe
+- the next action is a field update, task, email, webhook, function, create record, owner assignment, or Flow action
+
+Zoho documents that workflow rules support actions such as field updates, webhooks, functions, create record, owner assignment, and Actions by Zoho Flow.[^workflow-rules][^automatic-actions]
+
+Use CRM Workflow Rules for:
+
+- create Site after Deal becomes `Contract Signed` or `Won`
+- call a function when Site stage becomes `Ready For Provisioning`
+- call a function when Site stage becomes `Password Rotation Requested`
+- create follow-up tasks
+- schedule reminders
+
+### Use CRM Functions when
+
+- the logic is custom
+- you need to call the Opticable API
+- you need to update several CRM records together
+- you need to decide between multiple paths
+
+Use CRM Functions as the main automation engine for:
+
+- building payloads for the Opticable API
+- creating WorkDrive folder structures
+- syncing returned job IDs and Omada IDs back into CRM
+- creating child `Site Units` from CRM data
+
+### Use CRM Webhooks when
+
+- you only need a simple one-way call
+- you do not need much logic inside CRM first
+
+For your business, direct raw webhooks should be used sparingly.
+
+Best use:
+
+- simple fire-and-forget notifications
+
+Do **not** make raw webhooks the core orchestration layer if the payload needs preparation, branching, retries, or CRM updates after the response.
+
+### Use Blueprint when
+
+- humans must follow a controlled stage process
+- transitions should require mandatory fields, tasks, checklists, approvals, or confirmations
+- you want stage discipline
+
+Zoho Blueprint is built from `States` and `Transitions`, and transitions control how a record moves from one state to another.[^blueprint]
+
+Use Blueprint on:
+
+- `Deals`
+- `Sites`
+- `Installations`
+
+Recommended:
+
+- `Deals Blueprint` for commercial process
+- `Sites Blueprint` for operations/provisioning process
+- `Installations Blueprint` for scheduling/completion process
+
+Do **not** put everything into one giant Blueprint.
+
+### Use Approval Processes when
+
+- a human approval is genuinely required
+- the record should be locked pending approval
+
+Zoho approval processes are appropriate for approvals such as budgets, invoices, discounts, payments, and similar controlled decisions.[^approval]
+
+Use Approval Process for:
+
+- non-standard discounts
+- high-value deals
+- contract exceptions
+- unusual write-offs or billing exceptions
+
+Do not use Approval Process for normal operational stage changes.
+
+### Use Zoho Flow when
+
+- the trigger is outside CRM
+- multiple apps need to be connected with low-code steps
+- the logic is mainly app-to-app routing
+
+Zoho Flow is best thought of as an integration layer with triggers and actions across apps.[^flow][^flow-actions]
+
+Use Flow for:
+
+- Desk event -> CRM signal or task
+- Sign completed -> CRM update if native CRM automation is awkward
+- Billing event -> CRM status sync
+- external form or external tool -> CRM record creation
+
+Do **not** put the core provisioning logic only in Flow.
+
+Best pattern:
+
+- CRM decides the business state
+- CRM Function calls the Opticable API
+- Flow handles cross-app event routing where needed
+
+### Use native Billing/Books automation when
+
+- the event belongs to finance
+- the system of record should be Billing or Books
+
+Best pattern:
+
+- subscription lifecycle lives in Zoho Billing
+- important finance status is written back to CRM
+
+Do not try to make CRM the finance engine.
+
+### Use Desk automation when
+
+- the event belongs to support
+- SLA, assignment, and ticket behavior belong inside Desk
+
+Best pattern:
+
+- Desk manages tickets
+- CRM stores the commercial and site context
+- important ticket events can raise a CRM signal or update a Site support field
+
+## 14. Concrete Blueprint Design
+
+### Deal Blueprint
+
+Create one Blueprint on `Deals`.
+
+States:
+
+- Qualification
+- Survey / Discovery
+- Quote Preparation
+- Quote Sent
+- Negotiation
+- Contract Sent
+- Contract Signed
+- Won
+- Lost
+
+Key transitions:
+
+- `Prepare Quote`
+- `Send Quote`
+- `Send Contract`
+- `Mark Contract Signed`
+- `Mark Won`
+- `Mark Lost`
+
+Use Blueprint rules to require:
+
+- quote attachment before `Quote Sent`
+- sign request id before `Contract Sent`
+- signed contract reference before `Contract Signed`
+
+After transition `Contract Signed`:
+
+- trigger a CRM Function
+- create Site
+- create WorkDrive structure
+- copy key values from Deal to Site
+
+### Site Blueprint
+
+Create one Blueprint on `Sites`.
+
+States:
+
+- Intake
+- WorkDrive Ready
+- Contract Signed
+- Units Pending
+- Ready For Provisioning
+- Provisioning In Progress
+- Provisioned
+- Scheduled
+- Installation In Progress
+- Installed
+- Billing Ready
+- Active
+- Support
+- Suspended
+- Cancelled
+
+Key transitions:
+
+- `Prepare WorkDrive`
+- `Collect Units`
+- `Generate Docs`
+- `Provision Site`
+- `Schedule Install`
+- `Mark Installed`
+- `Mark Billing Ready`
+- `Activate Service`
+
+Recommended automation:
+
+- `Generate Docs` transition -> CRM Function -> `POST /v1/workflows/site-and-password`
+- `Provision Site` transition -> CRM Function -> either workflow endpoint or `/v1/omada/workdrive/jobs`
+- `Mark Installed` transition -> update install completion fields
+- `Mark Billing Ready` transition -> trigger billing creation
+
+### Installation Blueprint
+
+Create one Blueprint on `Installations`.
+
+States:
+
+- Requested
+- Scheduled
+- Technician Assigned
+- In Progress
+- Completed
+- Failed / Revisit Required
+
+Use this Blueprint to force:
+
+- assigned technician before scheduling
+- completion notes before completed
+- revisit reason before failure
+
+## 15. Concrete Automation Map
+
+### A. Lead qualified
+
+Trigger type:
+
+- CRM Workflow Rule
+
+Action:
+
+- CRM Function `convert_qualified_lead`
+
+Result:
+
+- create Account
+- create Contact
+- create Deal
+
+### B. Deal contract signed
+
+Trigger type:
+
+- Deal Blueprint transition or CRM Workflow Rule on stage change
+
+Action:
+
+- CRM Function `initialize_site_from_deal`
+
+Result:
+
+- create Site
+- create WorkDrive parent folder
+- store WorkDrive folder id on Site
+- optionally pre-create `Site Units` skeleton rows
+
+### C. Site ready for provisioning
+
+Trigger type:
+
+- Site Blueprint transition
+
+Action:
+
+- CRM Function `site_generate_docs_and_create`
+
+Result:
+
+- generate PDFs
+- upload to WorkDrive
+- write operation YAMLs
+- create or update Omada site
+- store returned job IDs back in Site
+
+### D. Password rotation requested
+
+Trigger type:
+
+- Site Blueprint transition
+- or button on Site record
+
+Action:
+
+- CRM Function `site_rotate_passwords`
+
+Result:
+
+- generate new passwords
+- update PDFs and TXT
+- update Omada with `omada_operation=update`
+- refresh `live-site.yaml`
+
+### E. Apply operator-prepared YAML from WorkDrive
+
+Trigger type:
+
+- button on Site record
+- or specific Site stage such as `Apply WorkDrive Plan`
+
+Action:
+
+- CRM Function `site_apply_workdrive_plan(site_id,operation)`
+
+Result:
+
+- read `create.yaml`, `upsert.yaml`, or `update.yaml`
+- execute directly
+
+### F. Installation completed
+
+Trigger type:
+
+- Installation Blueprint transition
+
+Action:
+
+- CRM Function or simple workflow field updates
+
+Result:
+
+- mark Site as `Billing Ready`
+- optionally notify finance
+
+### G. Billing activated
+
+Trigger type:
+
+- Billing event
+
+Best tool:
+
+- Zoho Flow or finance-side automation
+
+Result:
+
+- write billing subscription id and active status back to Site
+- move Site to `Active`
+
+### H. First support ticket
+
+Trigger type:
+
+- Desk event
+
+Best tool:
+
+- Zoho Flow + CRM Signal
+
+Result:
+
+- raise a CRM signal
+- optionally create a task or update support status on Site
+
+## 16. Best Simple-But-Scalable Rule Set
+
+If you want to keep the business simple and still scalable, use this rule set:
+
+### Rule 1
+
+`CRM` is the main system of record.
+
+### Rule 2
+
+`Deals` own the sale.
+
+### Rule 3
+
+`Sites` own delivery, provisioning, billing readiness, and support readiness.
+
+### Rule 4
+
+`Site Units` own per-unit WiFi data.
+
+### Rule 5
+
+`WorkDrive` owns files.
+
+### Rule 6
+
+`CRM Functions` own core business logic and API calls.
+
+### Rule 7
+
+`Blueprints` own human stage discipline.
+
+### Rule 8
+
+`Zoho Flow` is used only where app-to-app routing is the right tool, not as the core business brain.
+
+### Rule 9
+
+`Billing` owns recurring billing lifecycle.
+
+### Rule 10
+
+`Desk` owns support lifecycle.
+
+## 17. What I Would Actually Implement First
+
+If I were building your business in Zoho right now, I would do this first:
+
+1. Create the `Sites`, `Site Units`, and `Installations` modules.
+2. Add the critical fields listed above.
+3. Build one `Deals Blueprint`.
+4. Build one `Sites Blueprint`.
+5. Build CRM Functions that call the Opticable API.
+6. Add CRM Workflow Rules only for the obvious record-based triggers.
+7. Keep Zoho Flow limited to cross-app status sync.
+8. Add Billing integration after provisioning is stable.
+9. Add Desk integration after active sites start generating support volume.
+10. Add FSM only when technician scheduling becomes painful in CRM.
+
+This is the most stable sequence with the least unnecessary complexity.
+
+## 18. Final Answer To The Tooling Question
+
+Do **not** use only Zoho Flow.
+
+Do **not** put everything in CRM Workflows either.
+
+Best mix:
+
+- `Blueprint` for controlled stage movement
+- `Workflow Rules` for record-based triggers
+- `CRM Functions` for real business logic and API calls
+- `Zoho Flow` for cross-app routing
+- `Approval Process` only where approvals are truly needed
+- `Billing/Books/Desk` native automation for their own domains, with status pushed back into CRM
+
+That is the simplest model that will still scale cleanly.
+
+[^workflow-rules]: [Zoho CRM workflow rules](https://help.zoho.com/portal/en/kb/crm/automate-business-processes/workflow-management/articles/configuring-workflow-rules)
+[^automatic-actions]: [Zoho CRM automatic actions](https://help.zoho.com/portal/en/kb/crm/automate-business-processes/actions/articles/creating-actions-in-workflow-rules)
+[^flow-actions]: [Actions by Zoho Flow in CRM](https://help.zoho.com/portal/en/kb/crm/automate-business-processes/actions/articles/actions-by-zoho-flow)
+[^flow]: [Zoho Flow overview](https://www.zoho.com/flow/features/triggers.html)
+[^blueprint]: [Zoho CRM Blueprint overview](https://www.zoho.com/crm/tutorials/blueprint/overview.html)
+[^approval]: [Zoho CRM Approval Process overview](https://www.zoho.com/crm/tutorials/approval-process/overview.html)
