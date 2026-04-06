@@ -16,6 +16,7 @@ Repository docs:
 - [Omada Operation Strategy](./docs/omada-operation-strategy.md)
 - [Zoho Deluge Handbook](./docs/zoho-deluge-handbook.md)
 - [Zoho Operating Model](./docs/zoho-operating-model.md)
+- [Zoho CRM Build Sheet](./docs/zoho-crm-build-sheet.md)
 - [Deploy Notes](./deploy/README.md)
 
 ## Install On One Linux VM

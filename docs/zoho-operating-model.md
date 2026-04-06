@@ -2,6 +2,8 @@
 
 This document defines the recommended Zoho operating model for the Opticable platform.
 
+For the exact modules, fields, bilingual labels, and blueprint build order, see [zoho-crm-build-sheet.md](./zoho-crm-build-sheet.md).
+
 It is designed to stay stable as you add:
 
 - new client types
